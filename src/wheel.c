@@ -67,3 +67,27 @@ void hddc2b_whl_vel_hub_to_gnd(
         xd_whl[left ] = (whl_dia[left ] / 2.0) * omega_whl[left ];
     }
 }
+
+
+void hddc2b_whl_vel_gnd_to_hub(
+        int num_drv,
+        const double *whl_dia,
+        const double *xd_whl,
+        double *omega_hub)
+{
+    assert(num_drv >= 0);
+    assert(whl_dia);
+    assert(xd_whl);
+    assert(omega_hub);
+
+    for (int i = 0; i < num_drv; i++) {
+        int left  = i * 2 + OFFSET_LEFT;
+        int right = i * 2 + OFFSET_RIGHT;
+
+        assert(fabs(whl_dia[right]) > 0.0);
+        assert(fabs(whl_dia[left ]) > 0.0);
+
+        omega_hub[right] = xd_whl[right] / (whl_dia[right] / 2.0);
+        omega_hub[left ] = xd_whl[left ] / (whl_dia[left ] / 2.0);
+    }
+}

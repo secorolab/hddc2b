@@ -24,6 +24,14 @@
                 "velocity": "hddc2b:velocity"
             }
         },
+        "direction": {
+            "@id": "hddc2b:direction",
+            "@type": "@vocab",
+            "@context": {
+                "composition": "hddc2b:composition",
+                "distribution": "hddc2b:distribution"
+            }
+        },
         "preprocess-platform-weight": "hddc2b:preprocess-platform-weight",
         "preprocess-drive-weight": "hddc2b:preprocess-drive-weight",
         "weight-in-platform-space": "hddc2b:weight-in-platform-space",

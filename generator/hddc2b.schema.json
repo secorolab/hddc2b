@@ -25,6 +25,13 @@
                     "type": "string",
                     "enum": [ "force", "velocity" ]
                 },
+                "direction": {
+                    "type": "string",
+                    "enum": [
+                        "composition",
+                        "distribution"
+                    ]
+                },
                 "preprocess-platform-weight": {
                     "type": "boolean"
                 },
@@ -52,13 +59,58 @@
             "required": [
                 "name",
                 "quantity",
-                "preprocess-platform-weight",
-                "preprocess-drive-weight",
-                "weight-in-platform-space",
-                "weight-in-drive-space",
-                "has-secondary-task",
-                "inverse",
                 "description"
+            ],
+            "if": {
+                "anyOf": [
+                    {
+                        "properties": {
+                            "quantity": { "const": "velocity" },
+                            "direction": { "const": "distribution" }
+                        },
+                        "required": [ "quantity", "direction" ]
+                    },
+                    {
+                        "properties": {
+                            "quantity": { "const": "force" },
+                            "direction": { "const": "composition" }
+                        },
+                        "required": [ "quantity", "direction" ]
+                    }
+                ]
+            },
+            "then": {
+                "comment": "Plain velocity distribution and force composition wrappers without a secondary task need no weighting, inverse or nullspace.",
+                "required": [ "name", "quantity", "direction", "description" ]
+            },
+            "else": {
+                "required": [
+                    "preprocess-platform-weight",
+                    "preprocess-drive-weight",
+                    "weight-in-platform-space",
+                    "weight-in-drive-space",
+                    "has-secondary-task",
+                    "inverse"
+                ]
+            },
+            "allOf": [
+                {
+                    "if": {
+                        "properties": {
+                            "has-secondary-task": { "const": true }
+                        },
+                        "required": [ "has-secondary-task" ]
+                    },
+                    "then": {
+                        "required": [
+                            "preprocess-platform-weight",
+                            "preprocess-drive-weight",
+                            "weight-in-platform-space",
+                            "weight-in-drive-space",
+                            "inverse"
+                        ]
+                    }
+                }
             ]
         }
     }

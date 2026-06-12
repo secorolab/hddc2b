@@ -1,4 +1,5 @@
-find_package(check)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(CHECK REQUIRED IMPORTED_TARGET check)
 
 add_custom_command(
   OUTPUT solver.h
@@ -42,7 +43,7 @@ target_include_directories(main_test
 target_link_libraries(main_test
   PRIVATE
     hddc2b
-    Check::checkShared
+    PkgConfig::CHECK
 )
 
 set_target_properties(main_test

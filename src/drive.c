@@ -91,3 +91,56 @@ void hddc2b_drv_vel_gnd_to_pvt(
         xd_drv[y] = -l / r * (xd_whl[left] + xd_whl[right]);
     }
 }
+
+
+void hddc2b_drv_vel_pvt_to_gnd(
+        int num_drv,
+        const double *whl_dst,
+        const double *cstr_off,
+        const double *xd_drv,
+        double *xd_whl)
+{
+    assert(num_drv >= 0);
+    assert(whl_dst);
+    assert(cstr_off);
+    assert(xd_drv);
+    assert(xd_whl);
+
+    for (int i = 0; i < num_drv; i++) {
+        int left  = i * 2 + OFFSET_LEFT;
+        int right = i * 2 + OFFSET_RIGHT;
+        int x = 0 + i * 2;  // longitudinal velocity
+        int y = 1 + i * 2;  // transverse velocity
+        double r = whl_dst[i];
+        double l = cstr_off[i];
+
+        assert(fabs(l) > 0.0);
+
+        xd_whl[right] = -1.0 * xd_drv[x] - 0.5 * r / l * xd_drv[y];
+        xd_whl[left ] =  1.0 * xd_drv[x] - 0.5 * r / l * xd_drv[y];
+    }
+}
+
+
+void hddc2b_drv_vel_algn_dst(
+        int num_drv,
+        const double *xd_drv,
+        double *dst,
+        int inc_dst)
+{
+    assert(num_drv >= 0);
+    assert(xd_drv);
+    assert(dst);
+    assert(inc_dst >= 0);
+
+    for (int i = 0; i < num_drv; i++) {
+        int x = 0 + i * 2;  // longitudinal velocity
+        int y = 1 + i * 2;  // transverse velocity
+
+        // Signed angle between the drive's rolling direction (the pivot frame's
+        // x-axis) and the commanded attachment velocity. Rotating the pivot by
+        // this angle makes the drive roll without lateral scrubbing
+        // (transverse velocity zero).
+        dst[i * inc_dst] = atan2(xd_drv[y], xd_drv[x]);
+    }
+}

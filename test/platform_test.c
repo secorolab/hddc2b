@@ -781,6 +781,81 @@ START_TEST(test_hddc2b_pltf_vel_slv)
 END_TEST
 
 
+START_TEST(test_hddc2b_pltf_vel_pltf_to_pvt)
+{
+    double g[NUM_DRV * NUM_G_COORD] = {
+        1.0, 0.0, -1.0,
+        0.0, 1.0,  1.0,
+        1.0, 0.0, -1.0,
+        0.0, 1.0, -1.0,
+        1.0, 0.0,  1.0,
+        0.0, 1.0, -1.0,
+        1.0, 0.0,  1.0,
+        0.0, 1.0,  1.0
+    };
+    double xd_pltf[NUM_PLTF_COORD] = {
+        1.0, 2.0, 3.0               // vx, vy, omega
+    };
+    double xd_drv[NUM_DRV * NUM_DRV_COORD];
+    // Ẋ_d = G^T Ẋ_p
+    double res[NUM_DRV * NUM_DRV_COORD] = {
+        -2.0,  5.0,                 // fl-x, fl-y
+        -2.0, -1.0,                 // rl-x, rl-y
+         4.0, -1.0,                 // rr-x, rr-y
+         4.0,  5.0                  // fr-x, fr-y
+    };
+
+    hddc2b_pltf_vel_pltf_to_pvt(
+            NUM_DRV,
+            g,
+            xd_pltf,
+            xd_drv);
+
+    for (int i = 0; i < NUM_DRV * NUM_DRV_COORD; i++) {
+        ck_assert_dbl_eq(xd_drv[i], res[i]);
+    }
+}
+END_TEST
+
+
+START_TEST(test_pltf_power_must_be_equal_in_both_spaces)
+{
+    // Velocity-force duality: with F_p = G F_d (composition) and
+    // Ẋ_d = G^T Ẋ_p (distribution), virtual power is invariant, i.e.
+    // F_p . Ẋ_p == F_d . Ẋ_d.
+    double q_pvt[NUM_DRV] = {
+        0.3, 1.1, 2.0, M_PI_2
+    };
+    double g[NUM_DRV * NUM_G_COORD];
+    double f_drv[NUM_DRV * NUM_DRV_COORD] = {
+        70.95956555, 36.06250027,
+        77.00068869, 82.98443704,
+        87.41332935, 50.29720317,
+        23.6478908 , 75.43688388
+    };
+    double xd_pltf[NUM_PLTF_COORD] = {
+        1.5, -2.3, 0.7
+    };
+    double f_pltf[NUM_PLTF_COORD];
+    double xd_drv[NUM_DRV * NUM_DRV_COORD];
+
+    hddc2b_pltf_frc_comp_mat(NUM_DRV, pos_drv, q_pvt, g);
+    hddc2b_pltf_frc_pvt_to_pltf(NUM_DRV, g, f_drv, f_pltf);
+    hddc2b_pltf_vel_pltf_to_pvt(NUM_DRV, g, xd_pltf, xd_drv);
+
+    double p_pltf = 0.0;
+    double p_drv  = 0.0;
+    for (int i = 0; i < NUM_PLTF_COORD; i++) {
+        p_pltf += f_pltf[i] * xd_pltf[i];
+    }
+    for (int i = 0; i < NUM_DRV * NUM_DRV_COORD; i++) {
+        p_drv += f_drv[i] * xd_drv[i];
+    }
+    ck_assert_dbl_eq(p_pltf, p_drv);
+}
+END_TEST
+
+
 START_TEST(test_hddc2b_pltf_dcmp)
 {
     double g[NUM_DRV * NUM_G_COORD] = {
@@ -912,6 +987,8 @@ TCase *hddc2b_platform_test(void)
     tcase_add_test(tc, test_hddc2b_pltf_vel_redu_wgh_fini);
     tcase_add_test(tc, test_hddc2b_pltf_vel_redu_ref_fini);
     tcase_add_test(tc, test_hddc2b_pltf_vel_slv);
+    tcase_add_test(tc, test_hddc2b_pltf_vel_pltf_to_pvt);
+    tcase_add_test(tc, test_pltf_power_must_be_equal_in_both_spaces);
 
     tcase_add_test(tc, test_hddc2b_pltf_dcmp);
     tcase_add_test(tc, test_hddc2b_pltf_pinv);

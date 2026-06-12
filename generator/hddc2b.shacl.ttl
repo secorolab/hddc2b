@@ -31,49 +31,101 @@ hddc2b:SolverConfiguration
         sh:nodeKind sh:IRI
     ] ;
     sh:property [
-        sh:path hddc2b:preprocess-platform-weight ;
-        sh:minCount 1 ;
+        sh:path hddc2b:direction ;
         sh:maxCount 1 ;
-        sh:datatype xsd:boolean ;
-        sh:nodeKind sh:Literal
-    ] ;
-    sh:property [
-        sh:path hddc2b:preprocess-drive-weight ;
-        sh:minCount 1 ;
-        sh:maxCount 1 ;
-        sh:datatype xsd:boolean ;
-        sh:nodeKind sh:Literal
-    ] ;
-    sh:property [
-        sh:path hddc2b:weight-in-platform-space ;
-        sh:minCount 1 ;
-        sh:maxCount 1 ;
-        sh:datatype xsd:boolean ;
-        sh:nodeKind sh:Literal
-    ] ;
-    sh:property [
-        sh:path hddc2b:weight-in-drive-space ;
-        sh:minCount 1 ;
-        sh:maxCount 1 ;
-        sh:datatype xsd:boolean ;
-        sh:nodeKind sh:Literal
-    ] ;
-    sh:property [
-        sh:path hddc2b:has-secondary-task ;
-        sh:minCount 1 ;
-        sh:maxCount 1 ;
-        sh:datatype xsd:boolean ;
-        sh:nodeKind sh:Literal
-    ] ;
-    sh:property [
-        sh:path hddc2b:inverse ;
-        sh:minCount 1 ;
-        sh:maxCount 1 ;
-        sh:in ( hddc2b:pseudoinverse hddc2b:damped-least-squares ) ;
+        sh:in (
+            hddc2b:composition
+            hddc2b:distribution
+        ) ;
         sh:nodeKind sh:IRI
     ] ;
     sh:property [
         sh:path ( hddc2b:description [ sh:zeroOrMorePath rdf:rest ] rdf:first ) ;
         sh:datatype xsd:string ;
         sh:nodeKind sh:Literal
-    ] .
+    ] ;
+    # Plain velocity distribution and force composition wrappers without a
+    # secondary task need none of the weighting, inverse or nullspace machinery;
+    # every other solver requires the full set.
+    sh:or (
+        [
+            sh:property [
+                sh:path hddc2b:quantity ;
+                sh:hasValue hddc2b:velocity ;
+                sh:minCount 1
+            ] ;
+            sh:property [
+                sh:path hddc2b:direction ;
+                sh:hasValue hddc2b:distribution ;
+                sh:minCount 1
+            ] ;
+            sh:not [
+                sh:property [
+                    sh:path hddc2b:has-secondary-task ;
+                    sh:hasValue true
+                ]
+            ]
+        ]
+        [
+            sh:property [
+                sh:path hddc2b:quantity ;
+                sh:hasValue hddc2b:force ;
+                sh:minCount 1
+            ] ;
+            sh:property [
+                sh:path hddc2b:direction ;
+                sh:hasValue hddc2b:composition ;
+                sh:minCount 1
+            ] ;
+            sh:not [
+                sh:property [
+                    sh:path hddc2b:has-secondary-task ;
+                    sh:hasValue true
+                ]
+            ]
+        ]
+        [
+            sh:property [
+                sh:path hddc2b:preprocess-platform-weight ;
+                sh:minCount 1 ;
+                sh:maxCount 1 ;
+                sh:datatype xsd:boolean ;
+                sh:nodeKind sh:Literal
+            ] ;
+            sh:property [
+                sh:path hddc2b:preprocess-drive-weight ;
+                sh:minCount 1 ;
+                sh:maxCount 1 ;
+                sh:datatype xsd:boolean ;
+                sh:nodeKind sh:Literal
+            ] ;
+            sh:property [
+                sh:path hddc2b:weight-in-platform-space ;
+                sh:minCount 1 ;
+                sh:maxCount 1 ;
+                sh:datatype xsd:boolean ;
+                sh:nodeKind sh:Literal
+            ] ;
+            sh:property [
+                sh:path hddc2b:weight-in-drive-space ;
+                sh:minCount 1 ;
+                sh:maxCount 1 ;
+                sh:datatype xsd:boolean ;
+                sh:nodeKind sh:Literal
+            ] ;
+            sh:property [
+                sh:path hddc2b:has-secondary-task ;
+                sh:minCount 1 ;
+                sh:maxCount 1 ;
+                sh:datatype xsd:boolean ;
+                sh:nodeKind sh:Literal
+            ] ;
+            sh:property [
+                sh:path hddc2b:inverse ;
+                sh:minCount 1 ;
+                sh:maxCount 1 ;
+                sh:in ( hddc2b:pseudoinverse hddc2b:damped-least-squares ) ;
+                sh:nodeKind sh:IRI
+            ]
+        ]
+    ) .

@@ -7,13 +7,13 @@
     hddc2b_pltf_dcmp(num_drv, {{ns.g}}, u, s, vt);
 
     double s_inv[NUM_PLTF_COORD];
-    {% if conf["inverse"] == "pseudoinverse" -%}
+{%- if conf["inverse"] == "pseudoinverse" %}
     hddc2b_pltf_pinv(num_drv, eps, s, s_inv);
-    {% elif conf["inverse"] == "damped-least-squares" -%}
+{%- elif conf["inverse"] == "damped-least-squares" %}
     hddc2b_pltf_dmp(num_drv, eps, lambda, s, s_inv);
-    {% else -%}
+{%- else %}
     #error "No inverse generated"
-    {% endif %}
+{%- endif %}
 {%- endmacro -%}
 
 
@@ -49,90 +49,86 @@ double eps,
 
 
 {%- macro pltf_frc_w_pltf_sqrt(conf) -%}
-    {%- if conf["preprocess-platform-weight"] -%}
+{%- if conf["preprocess-platform-weight"] %}
     double w_pltf_sqrt[NUM_PLTF_COORD * NUM_PLTF_COORD];
     hddc2b_pltf_frc_w_pltf_sqrt(w_pltf, w_pltf_sqrt);
-    {% endif -%}
+{%- endif -%}
 {%- endmacro -%}
 
 
 {%- macro pltf_frc_w_drv_inv_sqrt(conf) -%}
-    {%- if conf["preprocess-drive-weight"] %}
+{%- if conf["preprocess-drive-weight"] %}
     double w_drv_inv_sqrt[num_drv * NUM_DRV_COORD * NUM_DRV_COORD];
     hddc2b_pltf_frc_w_drv_inv_sqrt(num_drv, w_drv, w_drv_inv_sqrt);
-    {% endif -%}
+{%- endif -%}
 {%- endmacro -%}
 
 
 {%- macro pltf_frc_sing_wgh(conf, ns) -%}
-    {%- if conf["weight-in-platform-space"] %}
+{%- if conf["weight-in-platform-space"] %}
     double g2[num_drv * NUM_G_COORD];
     double f_pltf2[NUM_PLTF_COORD];
     hddc2b_pltf_frc_sing_wgh(num_drv, {{ns.g}}, {{ns.f_pltf}}, w_pltf_sqrt, g2, f_pltf2);
-        {%- set ns.g = "g2" -%}
-        {%- set ns.f_pltf = "f_pltf2" %}
-    {% else -%}
-        {%- set ns.g = "g" -%}
-        {%- set ns.f_pltf = "f_pltf" -%}
-    {%- endif -%}
+{%- set ns.g = "g2" -%}
+{%- set ns.f_pltf = "f_pltf2" %}
+{%- else -%}
+{%- set ns.g = "g" -%}
+{%- set ns.f_pltf = "f_pltf" -%}
+{%- endif -%}
 {%- endmacro -%}
 
 
 {%- macro pltf_frc_redu_ref_init(conf, ns) -%}
-    {%- if conf["has-secondary-task"] %}
+{%- if conf["has-secondary-task"] %}
     double f_pltf3[NUM_PLTF_COORD];
     hddc2b_pltf_frc_redu_ref_init(num_drv, {{ns.g}}, {{ns.f_pltf}}, f_drv_ref, f_pltf3);
-        {%- set ns.f_pltf = "f_pltf3" %}
-    {% endif -%}
+{%- set ns.f_pltf = "f_pltf3" %}
+{%- endif -%}
 {%- endmacro -%}
 
 
 {%- macro pltf_frc_redu_wgh_init(conf, ns) -%}
-    {%- if conf["weight-in-drive-space"] %}
+{%- if conf["weight-in-drive-space"] %}
     double g3[num_drv * NUM_G_COORD];
     hddc2b_pltf_frc_redu_wgh_init(num_drv, {{ns.g}}, w_drv_inv_sqrt, g3);
-        {%- set ns.g = "g3" %}
-    {% endif -%}
+{%- set ns.g = "g3" %}
+{%- endif -%}
 {%- endmacro -%}
 
 
-{%- macro pltf_frc_slv(conf, ns) %}
-    {% if conf["weight-in-drive-space"] or conf["has-secondary-task"] -%}
+{%- macro pltf_frc_slv(conf, ns) -%}
+{%- if conf["weight-in-drive-space"] or conf["has-secondary-task"] %}
     double f_drv2[num_drv * NUM_DRV_COORD];
-    {% set ns.f_drv = "f_drv2" -%}
-    {%- endif -%}
+{%- set ns.f_drv = "f_drv2" -%}
+{%- endif %}
     hddc2b_pltf_frc_slv(num_drv, u, s_inv, vt, {{ns.f_pltf}}, {{ns.f_drv}});
-    {%- if conf["weight-in-drive-space"] or conf["has-secondary-task"] %}
-    {% endif -%}
 {%- endmacro -%}
 
 
 {%- macro pltf_frc_redu_wgh_fini(conf, ns) -%}
-    {%- if conf["weight-in-drive-space"] -%}
-        {%- if conf["has-secondary-task"] %}
+{%- if conf["weight-in-drive-space"] -%}
+{%- if conf["has-secondary-task"] %}
     double f_drv3[num_drv * NUM_DRV_COORD];
-            {%- set f_drv_ = "f_drv3" -%}
-        {%- else -%}
-            {%- set f_drv_ = "f_drv" -%}
-        {%- endif %}
+{%- set f_drv_ = "f_drv3" -%}
+{%- else -%}
+{%- set f_drv_ = "f_drv" -%}
+{%- endif %}
     hddc2b_pltf_frc_redu_wgh_fini(num_drv, {{ns.f_drv}}, w_drv_inv_sqrt, {{f_drv_}});
-        {%- if conf["has-secondary-task"] -%}
-            {%- set ns.f_drv = "f_drv3" -%}
-        {%- endif %}
-        {%- if conf["has-secondary-task"] %}
-        {% endif -%}
-    {%- endif -%}
+{%- if conf["has-secondary-task"] -%}
+{%- set ns.f_drv = "f_drv3" -%}
+{%- endif -%}
+{%- endif -%}
 {%- endmacro -%}
 
 
 {%- macro pltf_frc_redu_ref_fini(conf, ns) -%}
-    {%- if conf["has-secondary-task"] %}
+{%- if conf["has-secondary-task"] %}
     hddc2b_pltf_frc_redu_ref_fini(num_drv, f_drv_ref, {{ns.f_drv}}, f_drv);
-    {%- endif -%}
+{%- endif -%}
 {%- endmacro -%}
 
 
-{%- macro pltf_frc_pltf_to_drv(conf) %}
+{%- macro pltf_frc_pltf_to_drv(conf) -%}
 void {{conf.name}}(
 {{pltf_frc_pltf_to_drv_sig(conf) | indent(width=8, first=true)}})
 {
@@ -146,15 +142,100 @@ void {{conf.name}}(
                         f_pltf = "f_pltf",
                         f_drv  = "f_drv") %}
 
-    {{ pltf_frc_w_pltf_sqrt(conf) -}}
-    {{- pltf_frc_w_drv_inv_sqrt(conf) -}}
-    {{- pltf_frc_sing_wgh(conf, ns) -}}
-    {{- pltf_frc_redu_ref_init(conf, ns) -}}
-    {{- pltf_frc_redu_wgh_init(conf, ns) -}}
-    {{- pltf_slv_dcmp_inv(conf, ns) -}}
-    {{- pltf_frc_slv(conf, ns) -}}
-    {{- pltf_frc_redu_wgh_fini(conf, ns) -}}
-    {{- pltf_frc_redu_ref_fini(conf, ns) }}
+{{ pltf_frc_w_pltf_sqrt(conf) -}}
+{{- pltf_frc_w_drv_inv_sqrt(conf) -}}
+{{- pltf_frc_sing_wgh(conf, ns) -}}
+{{- pltf_frc_redu_ref_init(conf, ns) -}}
+{{- pltf_frc_redu_wgh_init(conf, ns) -}}
+{{- pltf_slv_dcmp_inv(conf, ns) -}}
+{{- pltf_frc_slv(conf, ns) -}}
+{{- pltf_frc_redu_wgh_fini(conf, ns) -}}
+{{- pltf_frc_redu_ref_fini(conf, ns) }}
+}
+{% endmacro -%}
+
+
+{%- macro pltf_frc_pltf_to_whl_sig(conf) -%}
+int num_drv,
+double eps,
+{% if conf["inverse"] == "damped-least-squares" %}double lambda,
+{% endif %}const double *g,
+const double *whl_dia,
+const double *whl_dst,
+const double *cstr_off,
+{% if conf["weight-in-platform-space"] %}const double *{{pltf_frc_w_pltf(conf)}},
+{% endif %}const double *f_pltf,
+{% if conf["weight-in-drive-space"] %}const double *{{pltf_frc_w_drv(conf)}},
+{% endif %}{% if conf["has-secondary-task"] %}const double *f_drv_ref,
+{% endif %}double *tau_whl
+{%- endmacro -%}
+
+
+{%- macro pltf_frc_pltf_to_whl(conf) -%}
+void {{conf.name}}(
+{{pltf_frc_pltf_to_whl_sig(conf) | indent(width=8, first=true)}})
+{
+    assert(num_drv >= 0);
+
+    const int NUM_DRV_COORD  = 2;
+    const int NUM_PLTF_COORD = 3;
+    const int NUM_G_COORD    = NUM_PLTF_COORD * NUM_DRV_COORD;
+    double f_drv[num_drv * NUM_DRV_COORD];
+    {%- set ns = namespace(
+                        g      = "g",
+                        f_pltf = "f_pltf",
+                        f_drv  = "f_drv") %}
+
+{{ pltf_frc_w_pltf_sqrt(conf) -}}
+{{- pltf_frc_w_drv_inv_sqrt(conf) -}}
+{{- pltf_frc_sing_wgh(conf, ns) -}}
+{{- pltf_frc_redu_ref_init(conf, ns) -}}
+{{- pltf_frc_redu_wgh_init(conf, ns) -}}
+{{- pltf_slv_dcmp_inv(conf, ns) -}}
+{{- pltf_frc_slv(conf, ns) -}}
+{{- pltf_frc_redu_wgh_fini(conf, ns) -}}
+{{- pltf_frc_redu_ref_fini(conf, ns) }}
+
+    double f_whl[num_drv * NUM_DRV_COORD];
+    hddc2b_drv_frc_pvt_to_gnd(num_drv, whl_dst, cstr_off, f_drv, f_whl);
+    hddc2b_whl_frc_gnd_to_hub(num_drv, whl_dia, f_whl, tau_whl);
+}
+{% endmacro -%}
+
+
+{%- macro pltf_frc_whl_to_pltf(conf) -%}
+void {{conf.name}}(
+        int num_drv,
+        const double *g,
+        const double *whl_dia,
+        const double *whl_dst,
+        const double *cstr_off,
+        const double *tau_whl,
+        double *f_pltf)
+{
+    assert(num_drv >= 0);
+
+    const int NUM_DRV_COORD = 2;
+    double f_whl[num_drv * NUM_DRV_COORD];
+    double f_drv[num_drv * NUM_DRV_COORD];
+
+    hddc2b_whl_frc_hub_to_gnd(num_drv, whl_dia, tau_whl, f_whl);
+    hddc2b_drv_frc_gnd_to_pvt(num_drv, whl_dst, cstr_off, f_whl, f_drv);
+    hddc2b_pltf_frc_pvt_to_pltf(num_drv, g, f_drv, f_pltf);
+}
+{% endmacro -%}
+
+
+{%- macro pltf_frc_drv_to_pltf(conf) -%}
+void {{conf.name}}(
+        int num_drv,
+        const double *g,
+        const double *f_drv,
+        double *f_pltf)
+{
+    assert(num_drv >= 0);
+
+    hddc2b_pltf_frc_pvt_to_pltf(num_drv, g, f_drv, f_pltf);
 }
 {% endmacro -%}
 
@@ -193,90 +274,135 @@ double eps,
 
 
 {%- macro pltf_vel_w_pltf_inv_sqrt(conf) -%}
-    {%- if conf["preprocess-platform-weight"] -%}
+{%- if conf["preprocess-platform-weight"] %}
     double w_pltf_inv_sqrt[NUM_PLTF_COORD * NUM_PLTF_COORD];
     hddc2b_pltf_vel_w_pltf_inv_sqrt(w_pltf, w_pltf_inv_sqrt);
-    {% endif -%}
+{%- endif -%}
 {%- endmacro -%}
 
 
 {%- macro pltf_vel_w_drv_sqrt(conf) -%}
-    {%- if conf["preprocess-drive-weight"] %}
+{%- if conf["preprocess-drive-weight"] %}
     double w_drv_sqrt[num_drv * NUM_DRV_COORD * NUM_DRV_COORD];
     hddc2b_pltf_vel_w_drv_sqrt(num_drv, w_drv, w_drv_sqrt);
-    {% endif -%}
+{%- endif -%}
 {%- endmacro -%}
 
 
 {%- macro pltf_vel_sing_wgh(conf, ns) -%}
-    {%- if conf["weight-in-drive-space"] %}
+{%- if conf["weight-in-drive-space"] %}
     double g2[num_drv * NUM_G_COORD];
     double xd_drv2[num_drv * NUM_DRV_COORD];
     hddc2b_pltf_vel_sing_wgh(num_drv, {{ns.g}}, {{ns.xd_drv}}, w_drv_sqrt, g2, xd_drv2);
-        {%- set ns.g = "g2" -%}
-        {%- set ns.xd_drv = "xd_drv2" %}
-    {% else -%}
-        {%- set ns.g = "g" -%}
-        {%- set ns.xd_drv = "xd_drv" -%}
-    {%- endif -%}
+{%- set ns.g = "g2" -%}
+{%- set ns.xd_drv = "xd_drv2" %}
+{%- else -%}
+{%- set ns.g = "g" -%}
+{%- set ns.xd_drv = "xd_drv" -%}
+{%- endif -%}
 {%- endmacro -%}
 
 
 {%- macro pltf_vel_redu_ref_init(conf, ns) -%}
-    {%- if conf["has-secondary-task"] %}
+{%- if conf["has-secondary-task"] %}
     double xd_drv3[num_drv * NUM_DRV_COORD];
     hddc2b_pltf_vel_redu_ref_init(num_drv, {{ns.g}}, {{ns.xd_drv}}, xd_pltf_ref, xd_drv3);
-        {%- set ns.xd_drv = "xd_drv3" %}
-    {% endif -%}
+{%- set ns.xd_drv = "xd_drv3" %}
+{%- endif -%}
 {%- endmacro -%}
 
 
 {%- macro pltf_vel_redu_wgh_init(conf, ns) -%}
-    {%- if conf["weight-in-platform-space"] %}
+{%- if conf["weight-in-platform-space"] %}
     double g3[num_drv * NUM_G_COORD];
     hddc2b_pltf_vel_redu_wgh_init(num_drv, {{ns.g}}, w_pltf_inv_sqrt, g3);
-        {%- set ns.g = "g3" %}
-    {% endif -%}
+{%- set ns.g = "g3" %}
+{%- endif -%}
 {%- endmacro -%}
 
 
-{%- macro pltf_vel_slv(conf, ns) %}
-    {% if conf["weight-in-platform-space"] or conf["has-secondary-task"] -%}
+{%- macro pltf_vel_slv(conf, ns) -%}
+{%- if conf["weight-in-platform-space"] or conf["has-secondary-task"] %}
     double xd_pltf2[NUM_PLTF_COORD];
-    {% set ns.xd_pltf = "xd_pltf2" -%}
-    {%- endif -%}
+{%- set ns.xd_pltf = "xd_pltf2" -%}
+{%- endif %}
     hddc2b_pltf_vel_slv(num_drv, u, s_inv, vt, {{ns.xd_drv}}, {{ns.xd_pltf}});
-    {%- if conf["weight-in-platform-space"] or conf["has-secondary-task"] %}
-    {% endif -%}
 {%- endmacro -%}
 
 
 {%- macro pltf_vel_redu_wgh_fini(conf, ns) -%}
-    {%- if conf["weight-in-platform-space"] -%}
-        {%- if conf["has-secondary-task"] %}
+{%- if conf["weight-in-platform-space"] -%}
+{%- if conf["has-secondary-task"] %}
     double xd_pltf3[NUM_PLTF_COORD];
-            {%- set xd_pltf_ = "xd_pltf3" -%}
-        {%- else -%}
-            {%- set xd_pltf_ = "xd_pltf" -%}
-        {%- endif %}
+{%- set xd_pltf_ = "xd_pltf3" -%}
+{%- else -%}
+{%- set xd_pltf_ = "xd_pltf" -%}
+{%- endif %}
     hddc2b_pltf_vel_redu_wgh_fini(num_drv, {{ns.xd_pltf}}, w_pltf_inv_sqrt, {{xd_pltf_}});
-        {%- if conf["has-secondary-task"] -%}
-            {%- set ns.xd_pltf = "xd_pltf3" -%}
-        {%- endif %}
-        {%- if conf["has-secondary-task"] %}
-        {% endif -%}
-    {%- endif -%}
+{%- if conf["has-secondary-task"] -%}
+{%- set ns.xd_pltf = "xd_pltf3" -%}
+{%- endif -%}
+{%- endif -%}
 {%- endmacro -%}
 
 
 {%- macro pltf_vel_redu_ref_fini(conf, ns) -%}
-    {%- if conf["has-secondary-task"] %}
+{%- if conf["has-secondary-task"] %}
     hddc2b_pltf_vel_redu_ref_fini(num_drv, xd_pltf_ref, {{ns.xd_pltf}}, xd_pltf);
-    {%- endif -%}
+{%- endif -%}
 {%- endmacro -%}
 
 
-{%- macro pltf_vel_drv_to_pltf(conf) %}
+{%- macro pltf_vel_dist_ref_wgh(conf, ns) -%}
+{%- if conf["weight-in-drive-space"] %}
+    double g2[num_drv * NUM_G_COORD];
+    double xd_drv_ref2[num_drv * NUM_DRV_COORD];
+    hddc2b_pltf_vel_sing_wgh(num_drv, {{ns.g}}, {{ns.xd_drv_ref}}, w_drv_sqrt, g2, xd_drv_ref2);
+{%- set ns.g = "g2" -%}
+{%- set ns.xd_drv_ref = "xd_drv_ref2" %}
+{%- else -%}
+{%- set ns.g = "g" -%}
+{%- set ns.xd_drv_ref = "xd_drv_ref" -%}
+{%- endif -%}
+{%- endmacro -%}
+
+
+{%- macro pltf_vel_dist_pltf_wgh_init(conf, ns) -%}
+{%- if conf["weight-in-platform-space"] %}
+    double g3[num_drv * NUM_G_COORD];
+    hddc2b_pltf_vel_redu_wgh_init(num_drv, {{ns.g}}, w_pltf_inv_sqrt, g3);
+{%- set ns.g = "g3" %}
+{%- endif -%}
+{%- endmacro -%}
+
+
+{%- macro pltf_vel_dist_slv(conf, ns) %}
+    double xd_pltf_ref2[NUM_PLTF_COORD];
+    hddc2b_pltf_vel_slv(num_drv, u, s_inv, vt, {{ns.xd_drv_ref}}, xd_pltf_ref2);
+{%- set ns.xd_pltf_ref = "xd_pltf_ref2" -%}
+{%- endmacro -%}
+
+
+{%- macro pltf_vel_dist_pltf_wgh_fini(conf, ns) -%}
+{%- if conf["weight-in-platform-space"] %}
+    double xd_pltf_ref3[NUM_PLTF_COORD];
+    hddc2b_pltf_vel_redu_wgh_fini(num_drv, {{ns.xd_pltf_ref}}, w_pltf_inv_sqrt, xd_pltf_ref3);
+{%- set ns.xd_pltf_ref = "xd_pltf_ref3" %}
+{%- endif -%}
+{%- endmacro -%}
+
+
+{%- macro pltf_vel_dist_scnd_fini(conf, ns) %}
+    double xd_drv_proj[num_drv * NUM_DRV_COORD];
+    hddc2b_pltf_vel_pltf_to_pvt(num_drv, g, {{ns.xd_pltf_ref}}, xd_drv_proj);
+
+    for (int i = 0; i < num_drv * NUM_DRV_COORD; i++) {
+        xd_drv_scnd[i] = xd_drv_ref[i] - xd_drv_proj[i];
+    }
+{%- endmacro -%}
+
+
+{%- macro pltf_vel_drv_to_pltf(conf) -%}
 void {{conf.name}}(
 {{pltf_vel_drv_to_pltf_sig(conf) | indent(width=8, first=true)}})
 {
@@ -290,28 +416,205 @@ void {{conf.name}}(
                         xd_drv  = "xd_drv",
                         xd_pltf = "xd_pltf") %}
 
-    {{ pltf_vel_w_pltf_inv_sqrt(conf) -}}
-    {{- pltf_vel_w_drv_sqrt(conf) -}}
-    {{- pltf_vel_sing_wgh(conf, ns) -}}
-    {{- pltf_vel_redu_ref_init(conf, ns) -}}
-    {{- pltf_vel_redu_wgh_init(conf, ns) -}}
-    {{- pltf_slv_dcmp_inv(conf, ns) -}}
-    {{- pltf_vel_slv(conf, ns) -}}
-    {{- pltf_vel_redu_wgh_fini(conf, ns) -}}
-    {{- pltf_vel_redu_ref_fini(conf, ns) }}
+{{ pltf_vel_w_pltf_inv_sqrt(conf) -}}
+{{- pltf_vel_w_drv_sqrt(conf) -}}
+{{- pltf_vel_sing_wgh(conf, ns) -}}
+{{- pltf_vel_redu_ref_init(conf, ns) -}}
+{{- pltf_vel_redu_wgh_init(conf, ns) -}}
+{{- pltf_slv_dcmp_inv(conf, ns) -}}
+{{- pltf_vel_slv(conf, ns) -}}
+{{- pltf_vel_redu_wgh_fini(conf, ns) -}}
+{{- pltf_vel_redu_ref_fini(conf, ns) }}
+}
+{% endmacro -%}
+
+
+{%- macro pltf_vel_whl_to_pltf_sig(conf) -%}
+int num_drv,
+double eps,
+{% if conf["inverse"] == "damped-least-squares" %}double lambda,
+{% endif %}const double *g,
+const double *whl_dia,
+const double *whl_dst,
+const double *cstr_off,
+{% if conf["weight-in-drive-space"] %}const double *{{pltf_vel_w_drv(conf)}},
+{% endif %}const double *omega_whl,
+{% if conf["weight-in-platform-space"] %}const double *{{pltf_vel_w_pltf(conf)}},
+{% endif %}{% if conf["has-secondary-task"] %}const double *xd_pltf_ref,
+{% endif %}double *xd_pltf
+{%- endmacro -%}
+
+
+{%- macro pltf_vel_whl_to_pltf(conf) -%}
+void {{conf.name}}(
+{{pltf_vel_whl_to_pltf_sig(conf) | indent(width=8, first=true)}})
+{
+    assert(num_drv >= 0);
+
+    const int NUM_DRV_COORD  = 2;
+    const int NUM_PLTF_COORD = 3;
+    const int NUM_G_COORD    = NUM_PLTF_COORD * NUM_DRV_COORD;
+    double xd_whl[num_drv * NUM_DRV_COORD];
+    double xd_drv[num_drv * NUM_DRV_COORD];
+    {%- set ns = namespace(
+                        g       = "g",
+                        xd_drv  = "xd_drv",
+                        xd_pltf = "xd_pltf") %}
+
+    hddc2b_whl_vel_hub_to_gnd(num_drv, whl_dia, omega_whl, xd_whl);
+    hddc2b_drv_vel_gnd_to_pvt(num_drv, whl_dst, cstr_off, xd_whl, xd_drv);
+
+{{ pltf_vel_w_pltf_inv_sqrt(conf) -}}
+{{- pltf_vel_w_drv_sqrt(conf) -}}
+{{- pltf_vel_sing_wgh(conf, ns) -}}
+{{- pltf_vel_redu_ref_init(conf, ns) -}}
+{{- pltf_vel_redu_wgh_init(conf, ns) -}}
+{{- pltf_slv_dcmp_inv(conf, ns) -}}
+{{- pltf_vel_slv(conf, ns) -}}
+{{- pltf_vel_redu_wgh_fini(conf, ns) -}}
+{{- pltf_vel_redu_ref_fini(conf, ns) }}
+}
+{% endmacro -%}
+
+
+{%- macro pltf_vel_pltf_to_drv_sig(conf) -%}
+int num_drv,
+{% if conf["has-secondary-task"] %}double eps,
+{% if conf["inverse"] == "damped-least-squares" %}double lambda,
+{% endif %}{% endif %}const double *g,
+{% if conf["has-secondary-task"] and conf["weight-in-drive-space"] %}const double *{{pltf_vel_w_drv(conf)}},
+{% endif %}const double *xd_pltf,
+{% if conf["has-secondary-task"] and conf["weight-in-platform-space"] %}const double *{{pltf_vel_w_pltf(conf)}},
+{% endif %}{% if conf["has-secondary-task"] %}const double *xd_drv_ref,
+double *xd_drv_prim,
+double *xd_drv_scnd
+{% else %}double *xd_drv
+{% endif %}
+{%- endmacro -%}
+
+
+{%- macro pltf_vel_pltf_to_drv(conf) -%}
+void {{conf.name}}(
+{{pltf_vel_pltf_to_drv_sig(conf) | indent(width=8, first=true)}})
+{
+    assert(num_drv >= 0);
+
+    {%- if conf["has-secondary-task"] %}
+    const int NUM_DRV_COORD  = 2;
+    const int NUM_PLTF_COORD = 3;
+    const int NUM_G_COORD    = NUM_PLTF_COORD * NUM_DRV_COORD;
+    {%- set ns = namespace(
+                        g           = "g",
+                        xd_drv_ref  = "xd_drv_ref",
+                        xd_pltf_ref = "xd_pltf_ref2") %}
+
+    hddc2b_pltf_vel_pltf_to_pvt(num_drv, g, xd_pltf, xd_drv_prim);
+
+{%- if conf["preprocess-platform-weight"] %}
+{{ pltf_vel_w_pltf_inv_sqrt(conf) }}
+{%- endif %}
+{%- if conf["preprocess-drive-weight"] %}
+{{ pltf_vel_w_drv_sqrt(conf) }}
+{%- endif %}
+{{ pltf_vel_dist_ref_wgh(conf, ns) }}
+{{ pltf_vel_dist_pltf_wgh_init(conf, ns) }}
+{{ pltf_slv_dcmp_inv(conf, ns) }}
+{{ pltf_vel_dist_slv(conf, ns) }}
+{{ pltf_vel_dist_pltf_wgh_fini(conf, ns) }}
+{{ pltf_vel_dist_scnd_fini(conf, ns) }}
+    {%- else %}
+    hddc2b_pltf_vel_pltf_to_pvt(num_drv, g, xd_pltf, xd_drv);
+    {%- endif %}
+}
+{% endmacro -%}
+
+
+{%- macro pltf_vel_pltf_to_whl_sig(conf) -%}
+int num_drv,
+{% if conf["has-secondary-task"] %}double eps,
+{% endif %}const double *g,
+const double *whl_dia,
+const double *whl_dst,
+const double *cstr_off,
+{% if conf["has-secondary-task"] %}const double *{{pltf_vel_w_drv(conf)}},
+{% endif %}const double *xd_pltf,
+{% if conf["has-secondary-task"] %}const double *{{pltf_vel_w_pltf(conf)}},
+{% endif %}{% if conf["has-secondary-task"] %}const double *xd_drv_ref,
+{% endif %}double *q_pvt_algn,
+double *omega_hub
+{%- endmacro -%}
+
+
+{%- macro pltf_vel_pltf_to_whl(conf) -%}
+void {{conf.name}}(
+{{pltf_vel_pltf_to_whl_sig(conf) | indent(width=8, first=true)}})
+{
+    assert(num_drv >= 0);
+
+    const int NUM_DRV_COORD = 2;
+    double xd_drv[num_drv * NUM_DRV_COORD];
+    double xd_whl[num_drv * NUM_DRV_COORD];
+
+    {%- if conf["has-secondary-task"] %}
+    double xd_drv_prim[num_drv * NUM_DRV_COORD];
+    double xd_drv_scnd[num_drv * NUM_DRV_COORD];
+    hddc2b_pltf_vel_pltf_to_drv(
+            num_drv,
+            eps,
+            g,
+            w_drv_sqrt,
+            xd_pltf,
+            w_pltf_inv_sqrt,
+            xd_drv_ref,
+            xd_drv_prim,
+            xd_drv_scnd);
+    for (int i = 0; i < num_drv * NUM_DRV_COORD; i++) {
+        xd_drv[i] = xd_drv_prim[i] + xd_drv_scnd[i];
+    }
+    {%- else %}
+    hddc2b_pltf_vel_pltf_to_pvt(num_drv, g, xd_pltf, xd_drv);
+    {%- endif %}
+
+    // Steer each pivot to its rolling direction; afterwards the attachment
+    // velocity is purely longitudinal with magnitude |Ẋ_d|, so the transverse
+    // (scrubbing) component is absorbed by the pivot instead of being pushed
+    // into the wheels (which would amplify it by 0.5 * r/l and inflate the
+    // wheel speeds).
+    hddc2b_drv_vel_algn_dst(num_drv, xd_drv, q_pvt_algn, 1);
+    for (int i = 0; i < num_drv; i++) {
+        xd_drv[i * NUM_DRV_COORD + 0] = hypot(xd_drv[i * NUM_DRV_COORD + 0],
+                                              xd_drv[i * NUM_DRV_COORD + 1]);
+        xd_drv[i * NUM_DRV_COORD + 1] = 0.0;
+    }
+
+    hddc2b_drv_vel_pvt_to_gnd(num_drv, whl_dst, cstr_off, xd_drv, xd_whl);
+    hddc2b_whl_vel_gnd_to_hub(num_drv, whl_dia, xd_whl, omega_hub);
 }
 {% endmacro -%}
 
 
 
 #include <hddc2b/functions/platform.h>
-#include <solver.h>
+#include <hddc2b/functions/solver.h>
+#include <hddc2b/functions/drive.h>
+#include <hddc2b/functions/wheel.h>
+#include <{{ header | default("solver") }}.h>
 #include <assert.h>
-
+#include <math.h>
 {% for s in solvers -%}
-{%- if s["quantity"] == "force" %}
+{%- if s["quantity"] == "force" -%}
+    {%- if s.direction|default("distribution") == "composition" %}
+
+{{pltf_frc_drv_to_pltf(s)}}
+    {%- else %}
+
 {{pltf_frc_pltf_to_drv(s)}}
-{% else %}
+    {%- endif -%}
+{%- elif s.direction|default("composition") == "distribution" %}
+
+{{pltf_vel_pltf_to_drv(s)}}
+{%- else %}
+
 {{pltf_vel_drv_to_pltf(s)}}
-{% endif -%}
-{% endfor %}
+{%- endif -%}
+{% endfor -%}

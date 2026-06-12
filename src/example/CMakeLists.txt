@@ -10,4 +10,5 @@ target_include_directories(hddc2b_example
 
 target_link_libraries(hddc2b_example
   hddc2b
+  ${MATH_LIBRARY}
 )

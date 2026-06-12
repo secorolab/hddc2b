@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0
 #include "solver.h"     // Automatically generated at test's build time
 #include <hddc2b/functions/platform.h>
+#include <hddc2b/functions/solver.h>
 #include "common.h"
 
 #include <math.h>
@@ -271,6 +272,180 @@ START_TEST(test_badly_conditioned_w_pltf)
 END_TEST
 
 
+START_TEST(test_hddc2b_pltf_vel_pltf_to_drv_primary)
+{
+    double g[NUM_DRV_REDU * NUM_G_COORD] = {
+        1.0, 0.0, -1.0,
+        0.0, 1.0,  1.0,
+        1.0, 0.0, -1.0,
+        0.0, 1.0, -1.0,
+        1.0, 0.0,  1.0,
+        0.0, 1.0, -1.0,
+        1.0, 0.0,  1.0,
+        0.0, 1.0,  1.0
+    };
+    double w_drv_sqrt[NUM_DRV_REDU * NUM_DRV_COORD * NUM_DRV_COORD] = {
+        1.0, 0.0, 0.0, 1.0,
+        1.0, 0.0, 0.0, 1.0,
+        1.0, 0.0, 0.0, 1.0,
+        1.0, 0.0, 0.0, 1.0
+    };
+    double w_pltf_inv_sqrt[NUM_PLTF_COORD * NUM_PLTF_COORD] = {
+        1.0, 0.0, 0.0,
+        0.0, 1.0, 0.0,
+        0.0, 0.0, 1.0
+    };
+    double xd_pltf[NUM_PLTF_COORD] = {
+        1.0, 2.0, 3.0
+    };
+    double xd_drv_ref[NUM_DRV_REDU * NUM_DRV_COORD] = {
+        0.0, 0.0,
+        0.0, 0.0,
+        0.0, 0.0,
+        0.0, 0.0
+    };
+    double xd_drv_prim[NUM_DRV_REDU * NUM_DRV_COORD];
+    double xd_drv_scnd[NUM_DRV_REDU * NUM_DRV_COORD];
+    double res_prim[NUM_DRV_REDU * NUM_DRV_COORD] = {
+        -2.0,  5.0,
+        -2.0, -1.0,
+         4.0, -1.0,
+         4.0,  5.0
+    };
+
+    hddc2b_pltf_vel_pltf_to_drv(
+            NUM_DRV_REDU,
+            EPS,
+            g,
+            w_drv_sqrt,
+            xd_pltf,
+            w_pltf_inv_sqrt,
+            xd_drv_ref,
+            xd_drv_prim,
+            xd_drv_scnd);
+
+    for (int i = 0; i < NUM_DRV_REDU * NUM_DRV_COORD; i++) {
+        ck_assert_dbl_eq(xd_drv_prim[i], res_prim[i]);
+        ck_assert_dbl_eq(xd_drv_scnd[i], 0.0);
+    }
+}
+END_TEST
+
+
+START_TEST(test_hddc2b_pltf_vel_pltf_to_drv_secondary_nullspace)
+{
+    double g[NUM_DRV_REDU * NUM_G_COORD] = {
+        1.0, 0.0, -1.0,
+        0.0, 1.0,  1.0,
+        1.0, 0.0, -1.0,
+        0.0, 1.0, -1.0,
+        1.0, 0.0,  1.0,
+        0.0, 1.0, -1.0,
+        1.0, 0.0,  1.0,
+        0.0, 1.0,  1.0
+    };
+    double w_drv_sqrt[NUM_DRV_REDU * NUM_DRV_COORD * NUM_DRV_COORD] = {
+        1.0, 0.0, 0.0, 1.0,
+        1.0, 0.0, 0.0, 1.0,
+        1.0, 0.0, 0.0, 1.0,
+        1.0, 0.0, 0.0, 1.0
+    };
+    double w_pltf_inv_sqrt[NUM_PLTF_COORD * NUM_PLTF_COORD] = {
+        1.0, 0.0, 0.0,
+        0.0, 1.0, 0.0,
+        0.0, 0.0, 1.0
+    };
+    double xd_pltf[NUM_PLTF_COORD] = {
+        0.0, 0.0, 0.0
+    };
+    double xd_drv_ref[NUM_DRV_REDU * NUM_DRV_COORD] = {
+         1.0, 0.0,
+        -1.0, 0.0,
+         0.0, 0.0,
+         0.0, 0.0
+    };
+    double xd_drv_prim[NUM_DRV_REDU * NUM_DRV_COORD];
+    double xd_drv_scnd[NUM_DRV_REDU * NUM_DRV_COORD];
+    double xd_pltf_scnd[NUM_PLTF_COORD];
+
+    hddc2b_pltf_vel_pltf_to_drv(
+            NUM_DRV_REDU,
+            EPS,
+            g,
+            w_drv_sqrt,
+            xd_pltf,
+            w_pltf_inv_sqrt,
+            xd_drv_ref,
+            xd_drv_prim,
+            xd_drv_scnd);
+
+    hddc2b_pltf_frc_pvt_to_pltf(NUM_DRV_REDU, g, xd_drv_scnd, xd_pltf_scnd);
+
+    for (int i = 0; i < NUM_DRV_REDU * NUM_DRV_COORD; i++) {
+        ck_assert_dbl_eq(xd_drv_prim[i], 0.0);
+        ck_assert_dbl_eq(xd_drv_scnd[i], xd_drv_ref[i]);
+    }
+    for (int i = 0; i < NUM_PLTF_COORD; i++) {
+        ck_assert_dbl_eq(xd_pltf_scnd[i], 0.0);
+    }
+}
+END_TEST
+
+
+START_TEST(test_hddc2b_pltf_vel_pltf_to_drv_secondary_projected_out)
+{
+    double g[NUM_DRV_REDU * NUM_G_COORD] = {
+        1.0, 0.0, -1.0,
+        0.0, 1.0,  1.0,
+        1.0, 0.0, -1.0,
+        0.0, 1.0, -1.0,
+        1.0, 0.0,  1.0,
+        0.0, 1.0, -1.0,
+        1.0, 0.0,  1.0,
+        0.0, 1.0,  1.0
+    };
+    double w_drv_sqrt[NUM_DRV_REDU * NUM_DRV_COORD * NUM_DRV_COORD] = {
+        1.0, 0.0, 0.0, 1.0,
+        1.0, 0.0, 0.0, 1.0,
+        1.0, 0.0, 0.0, 1.0,
+        1.0, 0.0, 0.0, 1.0
+    };
+    double w_pltf_inv_sqrt[NUM_PLTF_COORD * NUM_PLTF_COORD] = {
+        1.0, 0.0, 0.0,
+        0.0, 1.0, 0.0,
+        0.0, 0.0, 1.0
+    };
+    double xd_pltf[NUM_PLTF_COORD] = {
+        0.0, 0.0, 0.0
+    };
+    double xd_drv_ref[NUM_DRV_REDU * NUM_DRV_COORD] = {
+        1.0, 0.0,
+        1.0, 0.0,
+        1.0, 0.0,
+        1.0, 0.0
+    };
+    double xd_drv_prim[NUM_DRV_REDU * NUM_DRV_COORD];
+    double xd_drv_scnd[NUM_DRV_REDU * NUM_DRV_COORD];
+
+    hddc2b_pltf_vel_pltf_to_drv(
+            NUM_DRV_REDU,
+            EPS,
+            g,
+            w_drv_sqrt,
+            xd_pltf,
+            w_pltf_inv_sqrt,
+            xd_drv_ref,
+            xd_drv_prim,
+            xd_drv_scnd);
+
+    for (int i = 0; i < NUM_DRV_REDU * NUM_DRV_COORD; i++) {
+        ck_assert_dbl_eq(xd_drv_prim[i], 0.0);
+        ck_assert_dbl_eq(xd_drv_scnd[i], 0.0);
+    }
+}
+END_TEST
+
+
 TCase *hddc2b_solver_test(void)
 {
     TCase *tc = tcase_create("solver");
@@ -280,6 +455,9 @@ TCase *hddc2b_solver_test(void)
     tcase_add_test(tc, test_reference_value_in_nullspace);
     tcase_add_test(tc, test_reference_value_not_in_nullspace);
     tcase_add_test(tc, test_badly_conditioned_w_pltf);
+    tcase_add_test(tc, test_hddc2b_pltf_vel_pltf_to_drv_primary);
+    tcase_add_test(tc, test_hddc2b_pltf_vel_pltf_to_drv_secondary_nullspace);
+    tcase_add_test(tc, test_hddc2b_pltf_vel_pltf_to_drv_secondary_projected_out);
 
     return tc;
 }

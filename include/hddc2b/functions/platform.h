@@ -553,6 +553,69 @@ void hddc2b_pltf_frc_slv(
 
 
 /**
+ * Compute the drive-level velocities given the platform-level velocity. Since
+ * HDDC platforms are parallel kinematic chains, this mapping is unique: each
+ * drive's attachment velocity is fully determined by the (rigid) platform's
+ * motion. It is the kinematic dual of the (force) composition
+ * @f$\vect{F}_p = \vect{G} \vect{F}_d@f$ and is solved via the following
+ * formula:
+ * @f[
+ *   \dot{\vect{X}}_d = \vect{G}^T \dot{\vect{X}}_p
+ * @f]
+ *
+ * @param[in] num_drv The number of drives that the platform consists of.
+ * @param[in] g The force composition matrix @f$\vect{G}@f$ with three rows and
+ *              @f$2 \times {}@f$ @p num_drv columns, measured in the platform's
+ *              origin and its coordinates expressed in the platform's frame.
+ *              The matrix is arranged as @f[
+ *              \begin{bmatrix}
+ *                \frac{\partial{f_{p,x}}}{\partial{f_{1,x}}}
+ *                  & \frac{\partial{f_{p,x}}}{\partial{f_{1,y}}} & \ldots
+ *                  & \frac{\partial{f_{p,x}}}{\partial{f_{n,x}}}
+ *                  & \frac{\partial{f_{p,x}}}{\partial{f_{n,y}}} \\
+ *                \frac{\partial{f_{p,y}}}{\partial{f_{1,x}}}
+ *                  & \frac{\partial{f_{p,y}}}{\partial{f_{1,y}}} & \ldots
+ *                  & \frac{\partial{f_{p,y}}}{\partial{f_{n,x}}}
+ *                  & \frac{\partial{f_{p,y}}}{\partial{f_{n,y}}} \\
+ *                \frac{\partial{m_{p,z}}}{\partial{f_{1,x}}}
+ *                  & \frac{\partial{m_{p,z}}}{\partial{f_{1,y}}} & \ldots
+ *                  & \frac{\partial{m_{p,z}}}{\partial{f_{n,x}}}
+ *                  & \frac{\partial{m_{p,z}}}{\partial{f_{n,y}}}
+ *              \end{bmatrix}
+ *              @f] and must be provided in column-major order. Here,
+ *              @f$f_{p,x}@f$, @f$f_{p,y}@f$ and @f$m_{p,z}@f$ are the platform
+ *              forces and torque, respectively. @f$f_{i,x}@f$ and @f$f_{i,y}@f$
+ *              are the drive's forces.
+ * @param[in] xd_pltf The vector @f$\dot{\vect{X}}_p@f$ with three elements that
+ *                    represent the platform's linear and angular velocity. The
+ *                    linear velocity's reference point is the platform frame's
+ *                    origin. The coordinates are expressed in the platform
+ *                    frame. The vector is arranged as @f$
+ *                    \begin{bmatrix}
+ *                      \dot{X}_{p,x} & \dot{X}_{p,y} & \omega_p
+ *                    \end{bmatrix}@f$.
+ * @param[out] xd_drv The matrix @f$\dot{\vect{X}}_d@f$ with two rows and
+ *                    @p num_drv columns where the rows represent the linear
+ *                    velocity components of the drive's attachment point (to
+ *                    the platform) in the longitudinal and transverse
+ *                    direction, respectively. The linear velocities' reference
+ *                    point is the origin of the respective pivot frames. Their
+ *                    coordinates are expressed in these pivot frames. The
+ *                    matrix is arranged as @f[
+ *                    \begin{bmatrix}
+ *                      \dot{X}_{1,x} & \ldots & \dot{X}_{n,x} \\
+ *                      \dot{X}_{1,y} & \ldots & \dot{X}_{n,y}
+ *                    \end{bmatrix}
+ *                    @f] and will be provided in column-major order.
+ */
+void hddc2b_pltf_vel_pltf_to_pvt(
+        int num_drv,
+        const double *g,
+        const double *xd_pltf,
+        double *xd_drv);
+
+
+/**
  * @f[
  *   \vect{Z}_p, \vect{\Lambda}_p
  *     &= \operatorname{dsyev}(\vect{W}_p) \\

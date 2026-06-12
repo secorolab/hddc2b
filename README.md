@@ -3,7 +3,11 @@
 `hddc2b` is a C library that provides building blocks (2b) for solving planar, two-dimensional kinematics and statics problems of mobile robots that feature a hub-drive with differential-castor (HDDC) kinematics configuration such as the [KELO Robotics](https://www.kelo-robotics.com/products/) platforms.
 The library is complemented by a code generator that composes these building blocks into a wide range of concrete solvers as specified via a JSON-based configuration language.
 
-By design, `hddc2b` only supports two levels of task hierarchy and deliberately excludes a velocity distribution solver.
+By design, `hddc2b` supports two levels of task hierarchy.
+Force distribution uses the platform wrench as the primary task and can project a drive-space reference, such as pivot alignment, as a secondary task.
+Velocity distribution has an exact primary map (`Ẋ_d = Gᵀ Ẋ_p`, the kinematic dual of force composition) and a helper for projecting a drive-space secondary reference around that primary task.
+If the pivots are strongly misaligned, exact velocity closure can require large wheel speeds because the transverse drive velocity is realized through the caster offset.
+Weights can redistribute effort and shape the secondary task, but reducing those wheel speeds requires relaxing, saturating or otherwise limiting the primary platform-velocity task; then the recomposed platform velocity will no longer exactly equal the command during alignment.
 The library is directly compatible with the data structure layout of the KELO Robotics interface provided by the [`robif2b`](https://github.com/rosym-project/robif2b) library.
 
 
