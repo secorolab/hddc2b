@@ -108,6 +108,75 @@ void hddc2b_pltf_drv_algn_dst(
 }
 
 
+void hddc2b_pltf_drv_vel_algn_dst(
+        int num_drv,
+        const double *pos_drv,
+        const double *w,
+        const double *q_pvt,
+        const double *xd_pltf,
+        double *dst,
+        int inc_dst)
+{
+    assert(num_drv >= 0);
+    assert(pos_drv);
+    assert(w);
+    assert(q_pvt);
+    assert(xd_pltf);
+    assert(dst);
+    assert(inc_dst >= 0);
+
+    const int LDP = 2;  // leading dimension of "pos_drv" matrix
+    const int LDW = 2;  // leading dimension of "w" matrix
+
+    for (int i = 0; i < num_drv; i++) {
+        double c = cos(q_pvt[i]);
+        double s = sin(q_pvt[i]);
+        double r_piv[4] = {
+             c, s,
+            -s, c
+        };
+
+        double px = pos_drv[i * LDP + 0];
+        double py = pos_drv[i * LDP + 1];
+        double p_len = sqrt(px * px + py * py);
+        double r_ang[4] = {
+            -py / p_len, px / p_len,
+             px / p_len, py / p_len
+        };
+
+        double r_piv_ang[4];
+        cblas_dgemm(CblasColMajor, CblasTrans, CblasNoTrans, 2, 2, 2,
+            1.0, r_piv, 2,
+            r_ang, 2,
+            0.0, r_piv_ang, 2);
+        double w_piv_ang = atan2(r_piv_ang[0 * 2 + 1], r_piv_ang[0 * 2 + 0]);
+
+        double vx = xd_pltf[0];
+        double vy = xd_pltf[1];
+        double w_piv_lin = 0.0;
+        double v_len = sqrt(vx * vx + vy * vy);
+
+        if (fabs(v_len) > EPS) {
+            double r_lin[4] = {
+                 vx / v_len, vy / v_len,
+                -vy / v_len, vx / v_len
+            };
+
+            double r_piv_lin[4];
+            cblas_dgemm(CblasColMajor, CblasTrans, CblasNoTrans, 2, 2, 2,
+                1.0, r_piv, 2,
+                r_lin, 2,
+                0.0, r_piv_lin, 2);
+            w_piv_lin = atan2(r_piv_lin[0 * 2 + 1], r_piv_lin[0 * 2 + 0]);
+        }
+
+        int idx = i * inc_dst;
+        dst[idx] = w[i * LDW + 0] * xd_pltf[2] * w_piv_ang
+                 + w[i * LDW + 1] *    v_len   * w_piv_lin;
+    }
+}
+
+
 void hddc2b_pltf_frc_comp_mat(
         int num_drv,
         const double *pos_drv,

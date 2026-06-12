@@ -60,6 +60,92 @@ START_TEST(test_hddc2b_pltf_drv_algn_dst)
 END_TEST
 
 
+START_TEST(test_hddc2b_pltf_drv_vel_algn_dst_linear)
+{
+    double q_pvt[NUM_DRV] = {
+        0.0, 0.0, 0.0, M_PI_2   // fl, rl, rr, fr
+    };
+    double xd_pltf[NUM_PLTF_COORD] = {
+        1.0, 0.0, 0.0           // vx, vy, omega
+    };
+    double w[NUM_DRV_COORD * NUM_DRV] = {
+        1.0, 1.0,               // fl-wa, fl-wl
+        1.0, 1.0,               // rl-wa, rl-wl
+        1.0, 1.0,               // rr-wa, rr-wl
+        1.0, 1.0                // fr-wa, fr-wl
+    };
+    double dst[NUM_DRV * NUM_DRV_COORD] = {
+        0.0, 0.0,
+        0.0, 0.0,
+        0.0, 0.0,
+        0.0, 0.0
+    };
+    double res[NUM_DRV * NUM_DRV_COORD] = {
+        0.0,  0.0,              // dummy, fl
+        0.0,  0.0,              // dummy, rl
+        0.0,  0.0,              // dummy, rr
+        0.0, -M_PI_2            // dummy, fr
+    };
+
+    hddc2b_pltf_drv_vel_algn_dst(
+            NUM_DRV,
+            pos_drv,
+            w,
+            q_pvt,
+            xd_pltf,
+            &dst[1],
+            2);
+
+    for (int i = 0; i < NUM_DRV * NUM_DRV_COORD; i++) {
+        ck_assert_dbl_eq(dst[i], res[i]);
+    }
+}
+END_TEST
+
+
+START_TEST(test_hddc2b_pltf_drv_vel_algn_dst_angular)
+{
+    double pos[NUM_DRV * NUM_DRV_COORD] = {
+         0.0,  1.0,
+        -1.0,  0.0,
+         0.0, -1.0,
+         1.0,  0.0
+    };
+    double q_pvt[NUM_DRV] = {
+        0.0, 0.0, 0.0, 0.0
+    };
+    double xd_pltf[NUM_PLTF_COORD] = {
+        0.0, 0.0, 1.0           // vx, vy, omega
+    };
+    double w[NUM_DRV_COORD * NUM_DRV] = {
+        1.0, 1.0,
+        1.0, 1.0,
+        1.0, 1.0,
+        1.0, 1.0
+    };
+    double dst[NUM_DRV] = {
+        0.0, 0.0, 0.0, 0.0
+    };
+    double res[NUM_DRV] = {
+        M_PI, -M_PI_2, 0.0, M_PI_2
+    };
+
+    hddc2b_pltf_drv_vel_algn_dst(
+            NUM_DRV,
+            pos,
+            w,
+            q_pvt,
+            xd_pltf,
+            dst,
+            1);
+
+    for (int i = 0; i < NUM_DRV; i++) {
+        ck_assert_dbl_eq(dst[i], res[i]);
+    }
+}
+END_TEST
+
+
 START_TEST(test_hddc2b_pltf_frc_comp_mat)
 {
     double q_pvt[NUM_DRV] = {
@@ -967,6 +1053,8 @@ TCase *hddc2b_platform_test(void)
     TCase *tc = tcase_create("platform");
 
     tcase_add_test(tc, test_hddc2b_pltf_drv_algn_dst);
+    tcase_add_test(tc, test_hddc2b_pltf_drv_vel_algn_dst_linear);
+    tcase_add_test(tc, test_hddc2b_pltf_drv_vel_algn_dst_angular);
     tcase_add_test(tc, test_hddc2b_pltf_frc_comp_mat);
 
     tcase_add_test(tc, test_hddc2b_pltf_frc_w_pltf_sqrt);

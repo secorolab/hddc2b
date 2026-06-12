@@ -89,6 +89,57 @@ void hddc2b_pltf_drv_algn_dst(
 
 
 /**
+ * Compute a signed and weighted velocity-level pivot alignment reference for
+ * each drive with respect to a platform-level velocity task. This is the
+ * velocity-domain counterpart of @ref hddc2b_pltf_drv_algn_dst: the returned
+ * distances can be used as transverse drive velocity references and projected
+ * into the nullspace of the primary platform-velocity task.
+ *
+ * The angular task aligns each drive tangentially around the platform origin.
+ * The linear task aligns each drive with the commanded platform linear
+ * velocity. The final reference is the weighted sum of both signed alignment
+ * distances, scaled by the commanded angular and linear velocity,
+ * respectively.
+ *
+ * @param[in] num_drv The number of drives that the platform consists of.
+ * @param[in] pos_drv An array of @p num_drv position vectors that represent the
+ *                    position of each drive's attachment point with respect to
+ *                    the platform's origin. The coordinates are expressed in
+ *                    the platform frame. The array is arranged as @f[
+ *                    \begin{bmatrix}
+ *                      x_1 & \ldots & x_n \\
+ *                      y_1 & \ldots & y_n
+ *                    \end{bmatrix}
+ *                    @f] and must be provided in column-major order.
+ * @param[in] w An array that represents a weight for the angular and the linear
+ *              alignment tasks for each drive. The array is arranged as @f[
+ *              \begin{bmatrix}
+ *                w_{ang,1} & \ldots & w_{ang,n} \\
+ *                w_{lin,1} & \ldots & w_{lin,n}
+ *              \end{bmatrix}
+ *              @f] and must be provided in column-major order.
+ * @param[in] q_pvt The array @f$\vect{q}_{pvt}@f$ of @p num_drv pivot angles.
+ * @param[in] xd_pltf The vector @f$\dot{\vect{X}}_p@f$ with three elements
+ *                    that represent the platform linear and angular velocity.
+ * @param[out] dst An array with @p num_drv elements that represent the
+ *                 velocity-level pivot alignment reference of each drive. The
+ *                 array is arranged as @f$
+ *                 \begin{bmatrix}
+ *                   dst_1 & \ldots & dst_n
+ *                 \end{bmatrix}@f$.
+ * @param[in] inc_dst Increment of the @p dst array.
+ */
+void hddc2b_pltf_drv_vel_algn_dst(
+        int num_drv,
+        const double *pos_drv,
+        const double *w,
+        const double *q_pvt,
+        const double *xd_pltf,
+        double *dst,
+        int inc_dst);
+
+
+/**
  * The force composition matrix @f$\vect{G}(\vect{q}_{pvt}, \vec{\vect{p}}_d)@f$
  * depends on the pivot angles @f$\vect{q}_{pvt}@f$ as well as the drive
  * attachment vectors @f$\vec{\vect{p}}_d@f$ and encodes (i) the change of the

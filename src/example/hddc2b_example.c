@@ -311,10 +311,22 @@ int main(void)
         1.0, 0.0, 0.0                           // vx, vy, omega
     };
     double xd_drive_ref[NUM_DRV * NUM_DRV_COORD] = {    // [m/s], [m/s]
-        0.0, 0.5,  0.0, 0.5,  0.0, 0.5,  0.0, 0.5
+        0.0, 0.0,
+        0.0, 0.0,
+        0.0, 0.0,
+        0.0, 0.0
     };
     double q_pvt_algn[NUM_DRV];                     // [rad]
     double omega_wheel[NUM_DRV * NUM_WHL_COORD];    // [rad/s], [rad/s]
+
+    // Velocity-level pivot alignment reference for the secondary task.
+    hddc2b_pltf_drv_vel_algn_dst(NUM_DRV,
+            drive_attachment,
+            w_align,
+            pivot_angle,
+            xd_platform_cmd,
+            &xd_drive_ref[1],
+            2);
 
     // The velocity solver consumes the (inverse) square-root weights directly,
     // so derive them from the same weight matrices used for the force task.
