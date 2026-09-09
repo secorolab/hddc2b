@@ -1153,6 +1153,64 @@ Solver:
         \dot{\vect{X}}_p = \bar{\dot{\vect{X}}}_p + \dot{\vect{X}}_p''
 
 
+Velocity distribution
+---------------------
+
+The following routine maps a velocity from the platform frame to the pivot
+frames. Since HDDC platforms are parallel kinematic chains, each drive's
+attachment velocity is fully determined by the (rigid) platform's motion, so
+this mapping is *unique*. It is the kinematic dual of the (force) composition
+:math:`\vect{F}_p = \vect{G} \vect{F}_d` and, unlike force distribution or
+velocity composition, it does not invert :math:`\vect{G}`: there is no
+over-/under-determined system, hence no singular/redundant variants and no
+weighting, inverse or nullspace.
+
+Solver:
+
+  .. math::
+        \dot{\vect{X}}_d = \vect{G}^T \dot{\vect{X}}_p
+
+Primary and secondary velocity tasks
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For controllers that also want to steer misaligned pivots, the exact
+distribution above can be used as the primary task and a drive-space reference
+can be projected as a secondary task:
+
+  .. math::
+        \dot{\vect{X}}_d =
+        \dot{\vect{X}}_{d,\mathrm{prim}} +
+        \dot{\vect{X}}_{d,\mathrm{sec}}
+
+where
+
+  .. math::
+        \dot{\vect{X}}_{d,\mathrm{prim}} =
+        \vect{G}^T \dot{\vect{X}}_p
+
+and :math:`\dot{\vect{X}}_{d,\mathrm{sec}}` is the part of a drive-space
+reference that remains after the component affecting the platform velocity has
+been projected out. The reference can be built from the pivot alignment
+distance, for example by putting a lateral steering velocity into each drive's
+``y`` component.
+
+The primary task is exact: if the complete combined drive velocity is sent to
+the wheel inverse kinematics, composing the resulting wheel velocities returns
+the commanded platform velocity. This exactness has a practical consequence for
+misaligned pivots. A platform velocity that is mostly longitudinal in the
+platform frame can become mostly transverse in an individual pivot frame. The
+differential-caster inverse kinematics realizes that transverse component through
+the caster offset, so the required wheel speeds can become large.
+
+Weights can redistribute the drive effort and shape the secondary projection,
+but they do not remove a transverse component that is required by the exact
+primary platform-velocity task. If wheel-speed limits or smoother pivot
+alignment are more important than exact platform tracking while the pivots are
+misaligned, the primary task must be relaxed, saturated or otherwise limited.
+In that case the recomposed platform velocity is expected to differ from the
+command until the pivots align.
+
+
 Context
 -------
 

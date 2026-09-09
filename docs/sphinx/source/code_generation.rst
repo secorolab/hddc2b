@@ -32,23 +32,36 @@ They are optional (as long as the SHACL validation is not required), yet recomme
 Solver configuration
 --------------------
 
-Each solver configuration object must be comprised of the following properties. 
+Each solver configuration object must be comprised of the following properties.
 
 * ``name`` [**string**]: a valid C identifier that will be the name of the generated function
 * ``quantity`` [**string**]: indicate for which physical quantity this solver is meant to be. The value must either be
 
-  - ``force`` for the *force distribution* solver; or
-  - ``velocity`` for the *velocity composition* solver.
+  - ``force`` for force-level solvers; or
+  - ``velocity`` for velocity-level solvers.
+
+* ``direction`` [**string**, optional]: indicate the direction in which the physical quantity is mapped. The value must either be
+
+  - ``distribution`` for mapping from platform space to drive space; or
+  - ``composition`` for mapping from drive space to platform space.
+
+  If omitted, the historical defaults are preserved: ``force`` selects ``distribution`` and ``velocity`` selects ``composition``.
+  The four combinations therefore represent:
+
+  - ``force`` + ``distribution``: distribute a platform force to drive forces.
+  - ``force`` + ``composition``: compose drive forces to a platform force.
+  - ``velocity`` + ``composition``: compose drive velocities to a platform velocity.
+  - ``velocity`` + ``distribution``: distribute a platform velocity to drive velocities.
 
 * ``preprocess-platform-weight`` [**boolean**]: determine whether to preprocess the platform weight matrix in the solver or if it is passed in as an argument (see also :ref:`sec_cheating`).
 
-  - For the *force distribution* solver this will compute the square root of that matrix.
-  - For the *velocity composition* solver this will compute the inverse square root of that matrix.
+  - For force solvers this will compute the square root of that matrix.
+  - For velocity solvers this will compute the inverse square root of that matrix.
 
 * ``preprocess-drive-weight`` [**boolean**]: determine whether to preprocess the drive weight matrix in the solver or if it is passed in as an argument (see also :ref:`sec_cheating`).
 
-  - For the *force distribution* solver this will compute the inverse square root of that matrix.
-  - For the *velocity composition* solver this will compute the square root of that matrix.
+  - For force solvers this will compute the inverse square root of that matrix.
+  - For velocity solvers this will compute the square root of that matrix.
 
 * ``weight-in-platform-space`` [**boolean**]: use this flag when the platform *may* be(come) singular
 * ``weight-in-drive-space`` [**boolean**]: use this flag when the platform *may* be(come) redundant
@@ -56,11 +69,31 @@ Each solver configuration object must be comprised of the following properties.
 
   - For the *force distribution* solver the secondary task is specified in the drive space (e.g. for aligning the drive units with a lower priority than solving the platform-level task).
   - For the *velocity composition* solver the secondary task is specified in the platform space.
+  - The *velocity distribution* solver must not set this property: the platform-to-pivot map is unique, so it has no nullspace for a secondary task to act in. Use ``alignment`` instead.
 
 * ``inverse`` [**string**]: the type of inverse to compute. The value must either be
 
   - ``pseudoinverse`` for computing a `(scalar) pseudoinverse <https://en.wikipedia.org/wiki/Moore%E2%80%93Penrose_inverse#Scalars>`_; or
   - ``damped-least-squares`` for computing a damped inverse akin to `ridge regression <https://en.wikipedia.org/wiki/Ridge_regression#Relation_to_singular-value_decomposition_and_Wiener_filter>`_.
+
+The next three properties only apply to the *velocity distribution* solver; every other solver must omit them.
+
+* ``alignment`` [**string**, optional]: determine whether the solver steers the drives' castors towards their rolling direction. The value must either be
+
+  - ``none`` (the default) for distributing the commanded twist as it is; or
+  - ``twist-relaxation`` for treating the castor alignment as a lower-priority task.
+
+  Because the platform-to-pivot map is unique there is no nullspace to project such a task into, so ``twist-relaxation`` instead lets the alignment task modify the commanded twist itself, weighted against a platform tracking weight.
+  The solver then takes the tracking weight, the per-drive alignment weights, an alignment time constant and a maximum castor rate as additional arguments, and reports the resulting twist as ``xd_pltf_eff``.
+
+* ``output`` [**string**, optional]: the level at which the distribution stops. The value must either be
+
+  - ``pivot`` (the default) for stopping at the drives' pivot velocities; or
+  - ``hub`` for continuing through the castor and wheel kinematics to the wheel-hub velocities.
+
+  The ``hub`` solver additionally takes the wheel geometry (diameter, wheel distance and castor offset) and returns the hub velocities alongside the pivot velocities.
+
+* ``wheel-speed-limit`` [**boolean**, optional]: use this flag to scale the twist down until every wheel-hub speed is within a commanded maximum. Because the whole chain is linear, the twist, the pivot velocities and the hub velocities are scaled by the same factor and stay consistent with each other. This requires ``output`` to be ``hub``, as only that solver produces the hub speeds.
 
 * ``description``: an array of strings that will be used as a comment in the generated header file
 

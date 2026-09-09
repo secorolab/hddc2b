@@ -25,6 +25,7 @@ add_subdirectory(generator)
 
 # Build the test suite
 if(ENABLE_TESTS)
+  enable_testing()
   add_subdirectory(test)
 endif()
 

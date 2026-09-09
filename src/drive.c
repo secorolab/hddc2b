@@ -6,6 +6,13 @@
 #include <assert.h>
 
 
+// Tolerance for when to consider the vector length close to zero
+static const double EPS = 0.00001;
+
+// Tolerance for when to consider an angle to lie on atan2's -pi branch
+static const double EPS_ANG = 0.000000001;
+
+
 void hddc2b_drv_frc_gnd_to_pvt(
         int num_drv,
         const double *whl_dst,
@@ -89,5 +96,157 @@ void hddc2b_drv_vel_gnd_to_pvt(
 
         xd_drv[x] =   0.5  * (xd_whl[left] - xd_whl[right]);
         xd_drv[y] = -l / r * (xd_whl[left] + xd_whl[right]);
+    }
+}
+
+
+void hddc2b_drv_vel_pvt_to_gnd(
+        int num_drv,
+        const double *whl_dst,
+        const double *cstr_off,
+        const double *xd_drv,
+        double *xd_whl)
+{
+    assert(num_drv >= 0);
+    assert(whl_dst);
+    assert(cstr_off);
+    assert(xd_drv);
+    assert(xd_whl);
+
+    for (int i = 0; i < num_drv; i++) {
+        int left  = i * 2 + OFFSET_LEFT;
+        int right = i * 2 + OFFSET_RIGHT;
+        int x = 0 + i * 2;  // longitudinal velocity
+        int y = 1 + i * 2;  // transverse velocity
+        double r = whl_dst[i];
+        double l = cstr_off[i];
+
+        assert(fabs(l) > 0.0);
+
+        xd_whl[right] = -1.0 * xd_drv[x] - 0.5 * r / l * xd_drv[y];
+        xd_whl[left ] =  1.0 * xd_drv[x] - 0.5 * r / l * xd_drv[y];
+    }
+}
+
+
+void hddc2b_drv_vel_algn_dst(
+        int num_drv,
+        const double *xd_drv,
+        double *dst,
+        int inc_dst)
+{
+    assert(num_drv >= 0);
+    assert(xd_drv);
+    assert(dst);
+    assert(inc_dst >= 0);
+
+    for (int i = 0; i < num_drv; i++) {
+        int x = 0 + i * 2;  // longitudinal velocity
+        int y = 1 + i * 2;  // transverse velocity
+
+        // Signed angle between the drive's rolling direction (the pivot frame's
+        // x-axis) and the commanded attachment velocity. Rotating the pivot by
+        // this angle makes the drive roll without lateral scrubbing
+        // (transverse velocity zero).
+        dst[i * inc_dst] = atan2(xd_drv[y], xd_drv[x]);
+    }
+}
+
+
+void hddc2b_drv_vel_scrb_dst(
+        int num_drv,
+        const double *cstr_off,
+        double omega_pltf,
+        const double *xd_drv,
+        double *dst,
+        int inc_dst,
+        double *spd,
+        int inc_spd)
+{
+    assert(num_drv >= 0);
+    assert(cstr_off);
+    assert(xd_drv);
+    assert(dst);
+    assert(inc_dst >= 0);
+    assert(spd);
+    assert(inc_spd >= 0);
+
+    for (int i = 0; i < num_drv; i++) {
+        int x = 0 + i * 2;  // longitudinal velocity
+        int y = 1 + i * 2;  // transverse velocity
+        double l = cstr_off[i];
+
+        // Velocity of the wheel axle's centre for a castor that turns with the
+        // platform, i.e. that does not move with respect to the platform
+        double vx = xd_drv[x];
+        double vy = xd_drv[y] - l * omega_pltf;
+        double v = hypot(vx, vy);
+
+        double d = 0.0;
+        if (v > EPS) {
+            d = atan2(vy, vx);
+
+            // For a drive that rolls exactly backwards atan2 returns either
+            // "-pi" or "+pi", depending on the sign of the zero. Always
+            // choose "+pi" so that such drives are consistently steered in
+            // counter-clockwise direction.
+            if (d < -M_PI + EPS_ANG) {
+                d = M_PI;
+            }
+        }
+
+        dst[i * inc_dst] = d;
+        spd[i * inc_spd] = v;
+    }
+}
+
+
+void hddc2b_drv_vel_algn_ref(
+        int num_drv,
+        const double *cstr_off,
+        double tau,
+        double qd_max,
+        double omega_pltf,
+        const double *dst,
+        int inc_dst,
+        const double *spd,
+        int inc_spd,
+        double *xd_ref,
+        int inc_ref)
+{
+    assert(num_drv >= 0);
+    assert(cstr_off);
+    assert(tau > 0.0);
+    assert(qd_max >= 0.0);
+    assert(dst);
+    assert(inc_dst >= 0);
+    assert(spd);
+    assert(inc_spd >= 0);
+    assert(xd_ref);
+    assert(inc_ref >= 0);
+
+    for (int i = 0; i < num_drv; i++) {
+        double l = cstr_off[i];
+
+        assert(fabs(l) > 0.0);
+
+        // Rate at which the castor turns with respect to the platform to
+        // remove the scrub angle, saturated at the maximum castor rate.
+        // A castor aligns by rolling: left to itself it decays its scrub angle
+        // with the time constant "l / v", so asking for more than that at the
+        // speed it currently rolls at commands a pivot rate the wheels cannot
+        // sustain. Hence the time constant is the slower of the two.
+        double qd = fmin(1.0 / tau, spd[i * inc_spd] / fabs(l))
+                  * dst[i * inc_dst];
+        if (qd > qd_max) {
+            qd = qd_max;
+        }
+        if (qd < -qd_max) {
+            qd = -qd_max;
+        }
+
+        // A castor rotates at "\dot{q}" in the world when its pivot point
+        // moves transversely at "l \dot{q}"
+        xd_ref[i * inc_ref] = l * (qd + omega_pltf);
     }
 }

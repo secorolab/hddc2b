@@ -25,6 +25,13 @@
                     "type": "string",
                     "enum": [ "force", "velocity" ]
                 },
+                "direction": {
+                    "type": "string",
+                    "enum": [
+                        "composition",
+                        "distribution"
+                    ]
+                },
                 "preprocess-platform-weight": {
                     "type": "boolean"
                 },
@@ -44,6 +51,17 @@
                     "type": "string",
                     "enum": [ "pseudoinverse", "damped-least-squares" ]
                 },
+                "alignment": {
+                    "type": "string",
+                    "enum": [ "none", "twist-relaxation" ]
+                },
+                "output": {
+                    "type": "string",
+                    "enum": [ "pivot", "hub" ]
+                },
+                "wheel-speed-limit": {
+                    "type": "boolean"
+                },
                 "description": {
                     "type": "array",
                     "items": { "type": "string" }
@@ -52,13 +70,93 @@
             "required": [
                 "name",
                 "quantity",
-                "preprocess-platform-weight",
-                "preprocess-drive-weight",
-                "weight-in-platform-space",
-                "weight-in-drive-space",
-                "has-secondary-task",
-                "inverse",
                 "description"
+            ],
+            "if": {
+                "anyOf": [
+                    {
+                        "properties": {
+                            "quantity": { "const": "velocity" },
+                            "direction": { "const": "distribution" }
+                        },
+                        "required": [ "quantity", "direction" ]
+                    },
+                    {
+                        "properties": {
+                            "quantity": { "const": "force" },
+                            "direction": { "const": "composition" }
+                        },
+                        "required": [ "quantity", "direction" ]
+                    }
+                ]
+            },
+            "then": {
+                "comment": "Velocity distribution is a unique map without nullspace, force composition a plain sum; neither uses weighting or an inverse.",
+                "required": [ "name", "quantity", "direction", "description" ]
+            },
+            "else": {
+                "required": [
+                    "preprocess-platform-weight",
+                    "preprocess-drive-weight",
+                    "weight-in-platform-space",
+                    "weight-in-drive-space",
+                    "has-secondary-task",
+                    "inverse"
+                ],
+                "not": {
+                    "anyOf": [
+                        { "required": [ "alignment" ] },
+                        { "required": [ "output" ] },
+                        { "required": [ "wheel-speed-limit" ] }
+                    ]
+                }
+            },
+            "allOf": [
+                {
+                    "if": {
+                        "properties": {
+                            "quantity": { "const": "velocity" },
+                            "direction": { "const": "distribution" }
+                        },
+                        "required": [ "quantity", "direction" ]
+                    },
+                    "then": {
+                        "comment": "The platform-to-pivot map is unique, so there is no nullspace for a secondary task to act in.",
+                        "not": { "required": [ "has-secondary-task" ] }
+                    }
+                },
+                {
+                    "if": {
+                        "properties": {
+                            "has-secondary-task": { "const": true }
+                        },
+                        "required": [ "has-secondary-task" ]
+                    },
+                    "then": {
+                        "required": [
+                            "preprocess-platform-weight",
+                            "preprocess-drive-weight",
+                            "weight-in-platform-space",
+                            "weight-in-drive-space",
+                            "inverse"
+                        ]
+                    }
+                },
+                {
+                    "if": {
+                        "properties": {
+                            "wheel-speed-limit": { "const": true }
+                        },
+                        "required": [ "wheel-speed-limit" ]
+                    },
+                    "then": {
+                        "comment": "The hub speeds are only available for hub-level output.",
+                        "properties": {
+                            "output": { "const": "hub" }
+                        },
+                        "required": [ "output" ]
+                    }
+                }
             ]
         }
     }

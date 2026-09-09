@@ -60,6 +60,92 @@ START_TEST(test_hddc2b_pltf_drv_algn_dst)
 END_TEST
 
 
+START_TEST(test_hddc2b_pltf_drv_vel_algn_dst_linear)
+{
+    double q_pvt[NUM_DRV] = {
+        0.0, 0.0, 0.0, M_PI_2   // fl, rl, rr, fr
+    };
+    double xd_pltf[NUM_PLTF_COORD] = {
+        1.0, 0.0, 0.0           // vx, vy, omega
+    };
+    double w[NUM_DRV_COORD * NUM_DRV] = {
+        1.0, 1.0,               // fl-wa, fl-wl
+        1.0, 1.0,               // rl-wa, rl-wl
+        1.0, 1.0,               // rr-wa, rr-wl
+        1.0, 1.0                // fr-wa, fr-wl
+    };
+    double dst[NUM_DRV * NUM_DRV_COORD] = {
+        0.0, 0.0,
+        0.0, 0.0,
+        0.0, 0.0,
+        0.0, 0.0
+    };
+    double res[NUM_DRV * NUM_DRV_COORD] = {
+        0.0,  0.0,              // dummy, fl
+        0.0,  0.0,              // dummy, rl
+        0.0,  0.0,              // dummy, rr
+        0.0, -M_PI_2            // dummy, fr
+    };
+
+    hddc2b_pltf_drv_vel_algn_dst(
+            NUM_DRV,
+            pos_drv,
+            w,
+            q_pvt,
+            xd_pltf,
+            &dst[1],
+            2);
+
+    for (int i = 0; i < NUM_DRV * NUM_DRV_COORD; i++) {
+        ck_assert_dbl_eq(dst[i], res[i]);
+    }
+}
+END_TEST
+
+
+START_TEST(test_hddc2b_pltf_drv_vel_algn_dst_angular)
+{
+    double pos[NUM_DRV * NUM_DRV_COORD] = {
+         0.0,  1.0,
+        -1.0,  0.0,
+         0.0, -1.0,
+         1.0,  0.0
+    };
+    double q_pvt[NUM_DRV] = {
+        0.0, 0.0, 0.0, 0.0
+    };
+    double xd_pltf[NUM_PLTF_COORD] = {
+        0.0, 0.0, 1.0           // vx, vy, omega
+    };
+    double w[NUM_DRV_COORD * NUM_DRV] = {
+        1.0, 1.0,
+        1.0, 1.0,
+        1.0, 1.0,
+        1.0, 1.0
+    };
+    double dst[NUM_DRV] = {
+        0.0, 0.0, 0.0, 0.0
+    };
+    double res[NUM_DRV] = {
+        M_PI, -M_PI_2, 0.0, M_PI_2
+    };
+
+    hddc2b_pltf_drv_vel_algn_dst(
+            NUM_DRV,
+            pos,
+            w,
+            q_pvt,
+            xd_pltf,
+            dst,
+            1);
+
+    for (int i = 0; i < NUM_DRV; i++) {
+        ck_assert_dbl_eq(dst[i], res[i]);
+    }
+}
+END_TEST
+
+
 START_TEST(test_hddc2b_pltf_frc_comp_mat)
 {
     double q_pvt[NUM_DRV] = {
@@ -781,6 +867,81 @@ START_TEST(test_hddc2b_pltf_vel_slv)
 END_TEST
 
 
+START_TEST(test_hddc2b_pltf_vel_pltf_to_pvt)
+{
+    double g[NUM_DRV * NUM_G_COORD] = {
+        1.0, 0.0, -1.0,
+        0.0, 1.0,  1.0,
+        1.0, 0.0, -1.0,
+        0.0, 1.0, -1.0,
+        1.0, 0.0,  1.0,
+        0.0, 1.0, -1.0,
+        1.0, 0.0,  1.0,
+        0.0, 1.0,  1.0
+    };
+    double xd_pltf[NUM_PLTF_COORD] = {
+        1.0, 2.0, 3.0               // vx, vy, omega
+    };
+    double xd_drv[NUM_DRV * NUM_DRV_COORD];
+    // Ẋ_d = G^T Ẋ_p
+    double res[NUM_DRV * NUM_DRV_COORD] = {
+        -2.0,  5.0,                 // fl-x, fl-y
+        -2.0, -1.0,                 // rl-x, rl-y
+         4.0, -1.0,                 // rr-x, rr-y
+         4.0,  5.0                  // fr-x, fr-y
+    };
+
+    hddc2b_pltf_vel_pltf_to_pvt(
+            NUM_DRV,
+            g,
+            xd_pltf,
+            xd_drv);
+
+    for (int i = 0; i < NUM_DRV * NUM_DRV_COORD; i++) {
+        ck_assert_dbl_eq(xd_drv[i], res[i]);
+    }
+}
+END_TEST
+
+
+START_TEST(test_pltf_power_must_be_equal_in_both_spaces)
+{
+    // Velocity-force duality: with F_p = G F_d (composition) and
+    // Ẋ_d = G^T Ẋ_p (distribution), virtual power is invariant, i.e.
+    // F_p . Ẋ_p == F_d . Ẋ_d.
+    double q_pvt[NUM_DRV] = {
+        0.3, 1.1, 2.0, M_PI_2
+    };
+    double g[NUM_DRV * NUM_G_COORD];
+    double f_drv[NUM_DRV * NUM_DRV_COORD] = {
+        70.95956555, 36.06250027,
+        77.00068869, 82.98443704,
+        87.41332935, 50.29720317,
+        23.6478908 , 75.43688388
+    };
+    double xd_pltf[NUM_PLTF_COORD] = {
+        1.5, -2.3, 0.7
+    };
+    double f_pltf[NUM_PLTF_COORD];
+    double xd_drv[NUM_DRV * NUM_DRV_COORD];
+
+    hddc2b_pltf_frc_comp_mat(NUM_DRV, pos_drv, q_pvt, g);
+    hddc2b_pltf_frc_pvt_to_pltf(NUM_DRV, g, f_drv, f_pltf);
+    hddc2b_pltf_vel_pltf_to_pvt(NUM_DRV, g, xd_pltf, xd_drv);
+
+    double p_pltf = 0.0;
+    double p_drv  = 0.0;
+    for (int i = 0; i < NUM_PLTF_COORD; i++) {
+        p_pltf += f_pltf[i] * xd_pltf[i];
+    }
+    for (int i = 0; i < NUM_DRV * NUM_DRV_COORD; i++) {
+        p_drv += f_drv[i] * xd_drv[i];
+    }
+    ck_assert_dbl_eq(p_pltf, p_drv);
+}
+END_TEST
+
+
 START_TEST(test_hddc2b_pltf_dcmp)
 {
     double g[NUM_DRV * NUM_G_COORD] = {
@@ -887,11 +1048,257 @@ START_TEST(test_hddc2b_pltf_dmp)
 END_TEST
 
 
+START_TEST(test_hddc2b_pltf_vel_algn_rlx_zero_weight)
+{
+    // Without an alignment weight there is nothing to trade platform velocity
+    // against, so the commanded twist passes through untouched.
+    double q_pvt[NUM_DRV] = {
+        0.3, 1.1, 2.0, M_PI_2   // fl, rl, rr, fr
+    };
+    double g[NUM_DRV * NUM_G_COORD];
+    double w_pltf[NUM_PLTF_COORD * NUM_PLTF_COORD] = {
+        1.0, 0.0, 0.0,
+        0.0, 1.0, 0.0,
+        0.0, 0.0, 1.0
+    };
+    double w_algn[NUM_DRV] = { 0.0, 0.0, 0.0, 0.0 };
+    double xd_pltf[NUM_PLTF_COORD] = {
+        1.5, -2.3, 0.7          // vx, vy, omega
+    };
+    double xd_drv_ref[NUM_DRV * NUM_DRV_COORD] = {
+        0.0, 1.0,               // fl-x, fl-y
+        0.0, 2.0,               // rl-x, rl-y
+        0.0, 3.0,               // rr-x, rr-y
+        0.0, 4.0                // fr-x, fr-y
+    };
+    double xd_pltf_rlx[NUM_PLTF_COORD];
+
+    hddc2b_pltf_frc_comp_mat(NUM_DRV, pos_drv, q_pvt, g);
+    hddc2b_pltf_vel_algn_rlx(NUM_DRV, g, w_pltf, w_algn, xd_pltf, xd_drv_ref,
+            xd_pltf_rlx);
+
+    for (int i = 0; i < NUM_PLTF_COORD; i++) {
+        ck_assert_dbl_eq(xd_pltf_rlx[i], xd_pltf[i]);
+    }
+}
+END_TEST
+
+
+START_TEST(test_hddc2b_pltf_vel_algn_rlx_reference_already_met)
+{
+    // References that the commanded twist already realises leave nothing to
+    // relax, however heavily the alignment task is weighted.
+    double q_pvt[NUM_DRV] = {
+        0.3, 1.1, 2.0, M_PI_2   // fl, rl, rr, fr
+    };
+    double g[NUM_DRV * NUM_G_COORD];
+    double w_pltf[NUM_PLTF_COORD * NUM_PLTF_COORD] = {
+        1.0, 0.0, 0.0,
+        0.0, 1.0, 0.0,
+        0.0, 0.0, 1.0
+    };
+    double w_algn[NUM_DRV] = { 100.0, 100.0, 100.0, 100.0 };
+    double xd_pltf[NUM_PLTF_COORD] = {
+        1.5, -2.3, 0.7          // vx, vy, omega
+    };
+    double xd_drv_ref[NUM_DRV * NUM_DRV_COORD];
+    double xd_pltf_rlx[NUM_PLTF_COORD];
+
+    hddc2b_pltf_frc_comp_mat(NUM_DRV, pos_drv, q_pvt, g);
+    hddc2b_pltf_vel_pltf_to_pvt(NUM_DRV, g, xd_pltf, xd_drv_ref);
+    hddc2b_pltf_vel_algn_rlx(NUM_DRV, g, w_pltf, w_algn, xd_pltf, xd_drv_ref,
+            xd_pltf_rlx);
+
+    for (int i = 0; i < NUM_PLTF_COORD; i++) {
+        ck_assert_dbl_eq(xd_pltf_rlx[i], xd_pltf[i]);
+    }
+}
+END_TEST
+
+
+START_TEST(test_hddc2b_pltf_vel_algn_rlx_is_the_weighted_optimum)
+{
+    // The relaxation solves
+    //   (W_p + \sum_i w_{a,i} a_i a_i^T) \delta
+    //     = \sum_i w_{a,i} a_i (Xd'_{i,y} - a_i^T Xd_p)
+    // so the residual of those normal equations must vanish at the returned
+    // twist. That is the optimality condition of the weighted least-squares
+    // problem, independent of how the system is factorized.
+    double q_pvt[NUM_DRV] = {
+        0.3, 1.1, 2.0, M_PI_2   // fl, rl, rr, fr
+    };
+    double g[NUM_DRV * NUM_G_COORD];
+    double w_pltf[NUM_PLTF_COORD * NUM_PLTF_COORD] = {
+        2.0, 0.3, 0.0,
+        0.3, 1.5, 0.1,
+        0.0, 0.1, 4.0
+    };
+    double w_algn[NUM_DRV] = { 0.5, 1.0, 2.0, 0.25 };
+    double xd_pltf[NUM_PLTF_COORD] = {
+        1.5, -2.3, 0.7          // vx, vy, omega
+    };
+    double xd_drv_ref[NUM_DRV * NUM_DRV_COORD] = {
+        0.0, 1.0,               // fl-x, fl-y
+        0.0, 2.0,               // rl-x, rl-y
+        0.0, 3.0,               // rr-x, rr-y
+        0.0, 4.0                // fr-x, fr-y
+    };
+    double xd_pltf_rlx[NUM_PLTF_COORD];
+
+    hddc2b_pltf_frc_comp_mat(NUM_DRV, pos_drv, q_pvt, g);
+    hddc2b_pltf_vel_algn_rlx(NUM_DRV, g, w_pltf, w_algn, xd_pltf, xd_drv_ref,
+            xd_pltf_rlx);
+
+    double delta[NUM_PLTF_COORD];
+    for (int i = 0; i < NUM_PLTF_COORD; i++) {
+        delta[i] = xd_pltf_rlx[i] - xd_pltf[i];
+    }
+
+    // W_p[3x3] \delta[3x1]
+    double residual[NUM_PLTF_COORD] = { 0.0, 0.0, 0.0 };
+    for (int r = 0; r < NUM_PLTF_COORD; r++) {
+        for (int c = 0; c < NUM_PLTF_COORD; c++) {
+            residual[r] += w_pltf[r + c * NUM_PLTF_COORD] * delta[c];
+        }
+    }
+
+    for (int i = 0; i < NUM_DRV; i++) {
+        // The column of G that maps drive "i"'s transverse force, i.e. the row
+        // of G^T that yields the transverse velocity of pivot "i"
+        const double *a = &g[i * NUM_G_COORD + NUM_PLTF_COORD];
+        double a_delta = 0.0;
+        double a_pltf  = 0.0;
+        for (int k = 0; k < NUM_PLTF_COORD; k++) {
+            a_delta += a[k] * delta[k];
+            a_pltf  += a[k] * xd_pltf[k];
+        }
+        for (int r = 0; r < NUM_PLTF_COORD; r++) {
+            residual[r] += w_algn[i] * a[r] * a_delta;
+            residual[r] -= w_algn[i] * a[r]
+                    * (xd_drv_ref[i * NUM_DRV_COORD + 1] - a_pltf);
+        }
+    }
+
+    for (int i = 0; i < NUM_PLTF_COORD; i++) {
+        ck_assert_dbl_eq(residual[i], 0.0);
+    }
+}
+END_TEST
+
+
+START_TEST(test_hddc2b_pltf_vel_hub_lim_below_the_limit)
+{
+    // Hub speeds within the maximum are passed through, as are the twist and
+    // the pivot velocities they were derived from.
+    double xd_pltf[NUM_PLTF_COORD] = {
+        1.0, 2.0, 3.0           // vx, vy, omega
+    };
+    double xd_drv[NUM_DRV * NUM_DRV_COORD] = {
+        1.0, 2.0,               // fl-x, fl-y
+        3.0, 4.0,               // rl-x, rl-y
+        5.0, 6.0,               // rr-x, rr-y
+        7.0, 8.0                // fr-x, fr-y
+    };
+    double omega_hub[NUM_DRV * NUM_DRV_COORD] = {
+        1.0, -2.0,              // fl-r, fl-l
+        3.0, -4.0,              // rl-r, rl-l
+        5.0, -6.0,              // rr-r, rr-l
+        7.0, -8.0               // fr-r, fr-l
+    };
+    double xd_pltf_out[NUM_PLTF_COORD];
+    double xd_drv_out[NUM_DRV * NUM_DRV_COORD];
+    double omega_hub_out[NUM_DRV * NUM_DRV_COORD];
+
+    hddc2b_pltf_vel_hub_lim(NUM_DRV, 8.0,
+            xd_pltf, xd_drv, omega_hub,
+            xd_pltf_out, xd_drv_out, omega_hub_out);
+
+    for (int i = 0; i < NUM_PLTF_COORD; i++) {
+        ck_assert_dbl_eq(xd_pltf_out[i], xd_pltf[i]);
+    }
+    for (int i = 0; i < NUM_DRV * NUM_DRV_COORD; i++) {
+        ck_assert_dbl_eq(xd_drv_out[i], xd_drv[i]);
+        ck_assert_dbl_eq(omega_hub_out[i], omega_hub[i]);
+    }
+}
+END_TEST
+
+
+START_TEST(test_hddc2b_pltf_vel_hub_lim_scales_uniformly)
+{
+    // The peak hub speed of 8 rad/s must come down to 4 rad/s, so every
+    // quantity is halved - including the twist, which is what keeps the three
+    // of them consistent with each other. Writing back into the inputs must
+    // give the same result.
+    double xd_pltf[NUM_PLTF_COORD] = {
+        1.0, 2.0, 3.0           // vx, vy, omega
+    };
+    double xd_drv[NUM_DRV * NUM_DRV_COORD] = {
+        1.0, 2.0,               // fl-x, fl-y
+        3.0, 4.0,               // rl-x, rl-y
+        5.0, 6.0,               // rr-x, rr-y
+        7.0, 8.0                // fr-x, fr-y
+    };
+    double omega_hub[NUM_DRV * NUM_DRV_COORD] = {
+        1.0, -2.0,              // fl-r, fl-l
+        3.0, -4.0,              // rl-r, rl-l
+        5.0, -6.0,              // rr-r, rr-l
+        7.0, -8.0               // fr-r, fr-l
+    };
+    double res_pltf[NUM_PLTF_COORD] = {
+        0.5, 1.0, 1.5
+    };
+    double res_drv[NUM_DRV * NUM_DRV_COORD] = {
+        0.5, 1.0,
+        1.5, 2.0,
+        2.5, 3.0,
+        3.5, 4.0
+    };
+    double res_hub[NUM_DRV * NUM_DRV_COORD] = {
+        0.5, -1.0,
+        1.5, -2.0,
+        2.5, -3.0,
+        3.5, -4.0
+    };
+    double xd_pltf_out[NUM_PLTF_COORD];
+    double xd_drv_out[NUM_DRV * NUM_DRV_COORD];
+    double omega_hub_out[NUM_DRV * NUM_DRV_COORD];
+
+    hddc2b_pltf_vel_hub_lim(NUM_DRV, 4.0,
+            xd_pltf, xd_drv, omega_hub,
+            xd_pltf_out, xd_drv_out, omega_hub_out);
+
+    for (int i = 0; i < NUM_PLTF_COORD; i++) {
+        ck_assert_dbl_eq(xd_pltf_out[i], res_pltf[i]);
+    }
+    for (int i = 0; i < NUM_DRV * NUM_DRV_COORD; i++) {
+        ck_assert_dbl_eq(xd_drv_out[i], res_drv[i]);
+        ck_assert_dbl_eq(omega_hub_out[i], res_hub[i]);
+    }
+
+    // In place, as the generated solvers call it
+    hddc2b_pltf_vel_hub_lim(NUM_DRV, 4.0,
+            xd_pltf, xd_drv, omega_hub,
+            xd_pltf, xd_drv, omega_hub);
+
+    for (int i = 0; i < NUM_PLTF_COORD; i++) {
+        ck_assert_dbl_eq(xd_pltf[i], res_pltf[i]);
+    }
+    for (int i = 0; i < NUM_DRV * NUM_DRV_COORD; i++) {
+        ck_assert_dbl_eq(xd_drv[i], res_drv[i]);
+        ck_assert_dbl_eq(omega_hub[i], res_hub[i]);
+    }
+}
+END_TEST
+
+
 TCase *hddc2b_platform_test(void)
 {
     TCase *tc = tcase_create("platform");
 
     tcase_add_test(tc, test_hddc2b_pltf_drv_algn_dst);
+    tcase_add_test(tc, test_hddc2b_pltf_drv_vel_algn_dst_linear);
+    tcase_add_test(tc, test_hddc2b_pltf_drv_vel_algn_dst_angular);
     tcase_add_test(tc, test_hddc2b_pltf_frc_comp_mat);
 
     tcase_add_test(tc, test_hddc2b_pltf_frc_w_pltf_sqrt);
@@ -912,6 +1319,13 @@ TCase *hddc2b_platform_test(void)
     tcase_add_test(tc, test_hddc2b_pltf_vel_redu_wgh_fini);
     tcase_add_test(tc, test_hddc2b_pltf_vel_redu_ref_fini);
     tcase_add_test(tc, test_hddc2b_pltf_vel_slv);
+    tcase_add_test(tc, test_hddc2b_pltf_vel_pltf_to_pvt);
+    tcase_add_test(tc, test_hddc2b_pltf_vel_algn_rlx_zero_weight);
+    tcase_add_test(tc, test_hddc2b_pltf_vel_algn_rlx_reference_already_met);
+    tcase_add_test(tc, test_hddc2b_pltf_vel_algn_rlx_is_the_weighted_optimum);
+    tcase_add_test(tc, test_hddc2b_pltf_vel_hub_lim_below_the_limit);
+    tcase_add_test(tc, test_hddc2b_pltf_vel_hub_lim_scales_uniformly);
+    tcase_add_test(tc, test_pltf_power_must_be_equal_in_both_spaces);
 
     tcase_add_test(tc, test_hddc2b_pltf_dcmp);
     tcase_add_test(tc, test_hddc2b_pltf_pinv);

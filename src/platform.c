@@ -108,6 +108,75 @@ void hddc2b_pltf_drv_algn_dst(
 }
 
 
+void hddc2b_pltf_drv_vel_algn_dst(
+        int num_drv,
+        const double *pos_drv,
+        const double *w,
+        const double *q_pvt,
+        const double *xd_pltf,
+        double *dst,
+        int inc_dst)
+{
+    assert(num_drv >= 0);
+    assert(pos_drv);
+    assert(w);
+    assert(q_pvt);
+    assert(xd_pltf);
+    assert(dst);
+    assert(inc_dst >= 0);
+
+    const int LDP = 2;  // leading dimension of "pos_drv" matrix
+    const int LDW = 2;  // leading dimension of "w" matrix
+
+    for (int i = 0; i < num_drv; i++) {
+        double c = cos(q_pvt[i]);
+        double s = sin(q_pvt[i]);
+        double r_piv[4] = {
+             c, s,
+            -s, c
+        };
+
+        double px = pos_drv[i * LDP + 0];
+        double py = pos_drv[i * LDP + 1];
+        double p_len = sqrt(px * px + py * py);
+        double r_ang[4] = {
+            -py / p_len, px / p_len,
+             px / p_len, py / p_len
+        };
+
+        double r_piv_ang[4];
+        cblas_dgemm(CblasColMajor, CblasTrans, CblasNoTrans, 2, 2, 2,
+            1.0, r_piv, 2,
+            r_ang, 2,
+            0.0, r_piv_ang, 2);
+        double w_piv_ang = atan2(r_piv_ang[0 * 2 + 1], r_piv_ang[0 * 2 + 0]);
+
+        double vx = xd_pltf[0];
+        double vy = xd_pltf[1];
+        double w_piv_lin = 0.0;
+        double v_len = sqrt(vx * vx + vy * vy);
+
+        if (fabs(v_len) > EPS) {
+            double r_lin[4] = {
+                 vx / v_len, vy / v_len,
+                -vy / v_len, vx / v_len
+            };
+
+            double r_piv_lin[4];
+            cblas_dgemm(CblasColMajor, CblasTrans, CblasNoTrans, 2, 2, 2,
+                1.0, r_piv, 2,
+                r_lin, 2,
+                0.0, r_piv_lin, 2);
+            w_piv_lin = atan2(r_piv_lin[0 * 2 + 1], r_piv_lin[0 * 2 + 0]);
+        }
+
+        int idx = i * inc_dst;
+        dst[idx] = w[i * LDW + 0] * xd_pltf[2] * w_piv_ang
+                 + w[i * LDW + 1] *    v_len   * w_piv_lin;
+    }
+}
+
+
 void hddc2b_pltf_frc_comp_mat(
         int num_drv,
         const double *pos_drv,
@@ -156,6 +225,27 @@ void hddc2b_pltf_frc_pvt_to_pltf(
             NUM_PLTF_COORD, num_drv * NUM_DRV_COORD,
             1.0, g, NUM_PLTF_COORD, f_drv, INC,
             0.0, f_pltf, INC);
+}
+
+
+void hddc2b_pltf_vel_pltf_to_pvt(
+        int num_drv,
+        const double *g,
+        const double *xd_pltf,
+        double *xd_drv)
+{
+    assert(num_drv >= 0);
+    assert(g);
+    assert(xd_pltf);
+    assert(xd_drv);
+
+    const int INC = 1;
+
+    // Ẋ_d[NCx1] = G^T[NCx3] Ẋ_p[3x1]
+    cblas_dgemv(CblasColMajor, CblasTrans,
+            NUM_PLTF_COORD, num_drv * NUM_DRV_COORD,
+            1.0, g, NUM_PLTF_COORD, xd_pltf, INC,
+            0.0, xd_drv, INC);
 }
 
 
@@ -809,5 +899,128 @@ void hddc2b_pltf_dmp(
     for (int i = 0; i < NUM_EIG; i++) {
         double s_sqr = s[i] * s[i];
         s_inv[i] = s[i] / (s_sqr + lambda_sqr);
+    }
+}
+
+
+void hddc2b_pltf_vel_algn_rlx(
+        int num_drv,
+        const double *g,
+        const double *w_pltf,
+        const double *w_algn,
+        const double *xd_pltf,
+        const double *xd_drv_ref,
+        double *xd_pltf_rlx)
+{
+    assert(num_drv >= 0);
+    assert(g);
+    assert(w_pltf);
+    assert(w_algn);
+    assert(xd_pltf);
+    assert(xd_drv_ref);
+    assert(xd_pltf_rlx);
+
+    const int LDW  = NUM_PLTF_COORD;
+    const int LDD  = NUM_PLTF_COORD;
+    const int LDXD = NUM_DRV_COORD;
+    const int INC  = 1;
+
+    //
+    // Normal equations of the weighted least-squares problem:
+    //   (W_p[3x3] + \sum_i w_{a,i} a_i[3x1] a_i^T[1x3]) \delta[3x1]
+    //     = \sum_i w_{a,i} (Xd_{i,y}'[1x1] - a_i^T[1x3] Xd_p[3x1]) a_i[3x1]
+    //
+    // where "a_i" is the column of G that maps drive "i"'s transverse force to
+    // the platform, i.e. the row of G^T that yields the transverse velocity of
+    // pivot "i".
+    //
+    const char UPLO = 'L';  // use lower triangular matrix
+    double m[NUM_PLTF_COORD * NUM_PLTF_COORD];
+    double delta[NUM_PLTF_COORD];
+
+    memcpy(m, w_pltf, NUM_PLTF_COORD * NUM_PLTF_COORD * sizeof(double));
+    for (int i = 0; i < NUM_PLTF_COORD; i++) {
+        delta[i] = 0.0;
+    }
+
+    for (int i = 0; i < num_drv; i++) {
+        const double *a = &g[i * NUM_G_COORD + NUM_PLTF_COORD];
+
+        // M[3x3] += w_{a,i} a_i[3x1] a_i^T[1x3]
+        cblas_dsyr(CblasColMajor, CblasLower, NUM_PLTF_COORD,
+                w_algn[i], a, INC,
+                m, LDW);
+
+        // Transverse velocity of pivot "i" under the commanded platform twist
+        double xd_algn = cblas_ddot(NUM_PLTF_COORD, a, INC, xd_pltf, INC);
+
+        // \delta[3x1] += w_{a,i} (Xd_{i,y}'[1x1] - a_i^T[1x3] Xd_p[3x1])
+        //                * a_i[3x1]
+        cblas_daxpy(NUM_PLTF_COORD,
+                w_algn[i] * (xd_drv_ref[i * LDXD + 1] - xd_algn), a, INC,
+                delta, INC);
+    }
+
+    // \delta[3x1] = M^{-1}[3x3] \delta[3x1]
+    // The system matrix is positive definite because "W_p" is positive
+    // definite and the sum of the weighted outer products is positive
+    // semi-definite. Hence, the Cholesky factorization cannot fail.
+    LAPACKE_dposv_work(LAPACK_COL_MAJOR, UPLO, NUM_PLTF_COORD, 1,
+            m, LDW, delta, LDD);
+
+    // Xd_{rlx}[3x1] = Xd_p[3x1] + \delta[3x1]
+    for (int i = 0; i < NUM_PLTF_COORD; i++) {
+        xd_pltf_rlx[i] = xd_pltf[i] + delta[i];
+    }
+}
+
+
+void hddc2b_pltf_vel_hub_lim(
+        int num_drv,
+        double omega_max,
+        const double *xd_pltf_in,
+        const double *xd_drv_in,
+        const double *omega_hub_in,
+        double *xd_pltf_out,
+        double *xd_drv_out,
+        double *omega_hub_out)
+{
+    assert(num_drv >= 0);
+    assert(omega_max > 0.0);
+    assert(xd_pltf_in);
+    assert(xd_drv_in);
+    assert(omega_hub_in);
+    assert(xd_pltf_out);
+    assert(xd_drv_out);
+    assert(omega_hub_out);
+
+    const int LDO = 2;  // leading dimension of "omega_hub" matrix
+
+    // The largest hub speed magnitude determines by how much to scale down
+    double omega_peak = 0.0;
+    for (int i = 0; i < num_drv * LDO; i++) {
+        double omega_abs = fabs(omega_hub_in[i]);
+        if (omega_abs > omega_peak) {
+            omega_peak = omega_abs;
+        }
+    }
+
+    // Activate the limit only if the peak hub speed exceeds the maximum
+    double scale = 1.0;
+    if (omega_peak > omega_max) {
+        scale = omega_max / omega_peak;
+    }
+
+    // The maps from the platform twist to the pivot and to the hub velocities
+    // are linear. Hence, scaling all three quantities by the same factor keeps
+    // them consistent with each other.
+    for (int i = 0; i < NUM_PLTF_COORD; i++) {
+        xd_pltf_out[i] = scale * xd_pltf_in[i];
+    }
+    for (int i = 0; i < num_drv * NUM_DRV_COORD; i++) {
+        xd_drv_out[i] = scale * xd_drv_in[i];
+    }
+    for (int i = 0; i < num_drv * LDO; i++) {
+        omega_hub_out[i] = scale * omega_hub_in[i];
     }
 }

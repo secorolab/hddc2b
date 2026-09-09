@@ -106,6 +106,29 @@
                 "Find a solution to the velocity composition problem for a situation where the",
                 "platform is **singular** (less than one drive unit)."
             ]
+        },
+        {
+            "name": "ex_vel_pltf_to_pvt",
+            "quantity": "velocity",
+            "direction": "distribution",
+            "description": [
+                "Distribute a platform twist to the pivot velocities. The map is unique",
+                "(the kinematic dual of force composition)."
+            ]
+        },
+        {
+            "name": "hddc2b_example_vel_dist",
+            "quantity": "velocity",
+            "direction": "distribution",
+            "alignment": "twist-relaxation",
+            "output": "hub",
+            "wheel-speed-limit": true,
+            "description": [
+                "Distribute a platform twist to the wheel hub speeds. Castor alignment is",
+                "a lower-weighted task that relaxes the twist, since the unique",
+                "platform-to-pivot map leaves no nullspace for it. The hub speeds are",
+                "limited by scaling the relaxed twist uniformly."
+            ]
         }
     ]
 }
