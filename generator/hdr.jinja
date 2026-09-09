@@ -662,6 +662,63 @@ void {{conf.name}}(
 {%- endmacro -%}
 
 
+{%- macro comm_platform_velocity_eff_out(conf) -%}
+@param[out] xd_pltf_eff The vector @f$\dot{\vect{X}}_{eff}@f$ with three
+                        elements that represent the effective linear and
+                        angular velocity of the platform, i.e. after the
+                        castor alignment has relaxed and the hub speed limit
+                        has scaled the commanded twist. The vector is
+                        arranged in the same way as @p xd_pltf.
+{%- endmacro -%}
+
+
+{%- macro comm_weight_platform_algn(conf) -%}
+@param[in] w_pltf The platform's tracking weight matrix @f$\vect{W}_p@f$, a
+                  positive-definite @f$3 \times 3@f$ matrix. The weight is
+                  measured in the platform's origin and its coordinates are
+                  expressed in the platform frame. The matrix is arranged as
+                  @f[
+                  \begin{bmatrix}
+                    w_{p,xx} & w_{p,yx} & w_{p,mx} \\
+                    w_{p,xy} & w_{p,yy} & w_{p,my} \\
+                    w_{p,xm} & w_{p,ym} & w_{p,mm}
+                  \end{bmatrix}
+                  @f] where @f$w_{p,yx} = w_{p,xy}@f$,
+                  @f$w_{p,mx} = w_{p,xm}@f$ and @f$w_{p,my} = w_{p,ym}@f$.
+                  The ratio between this weight and the alignment weights
+                  determines how much platform velocity is given up to align
+                  the castors.
+{%- endmacro -%}
+
+
+{%- macro comm_weight_align(conf) -%}
+@param[in] w_algn An array with @p num_drv elements that represent a
+                  non-negative weight @f$w_{a,i}@f$ for each drive's castor
+                  alignment task. The array is arranged as @f$
+                  \begin{bmatrix}
+                    w_{a,1} & \ldots & w_{a,n}
+                  \end{bmatrix}@f$.
+{%- endmacro -%}
+
+
+{%- macro comm_align_time_constant(conf) -%}
+@param[in] tau The time constant @f$\tau@f$ within which to remove the
+               drives' scrub angle. The time constant must be positive.
+{%- endmacro -%}
+
+
+{%- macro comm_align_max_rate(conf) -%}
+@param[in] qd_max The maximum castor rate @f$\dot{q}_{max}@f$ with respect to
+                  the platform. The rate must be non-negative.
+{%- endmacro -%}
+
+
+{%- macro comm_hub_velocity_max(conf) -%}
+@param[in] omega_max The maximum admissible hub speed @f$\omega_{max}@f$. The
+                     speed must be positive.
+{%- endmacro -%}
+
+
 {%- macro pltf_vel_pltf_to_drv_comm(conf) %}
  * {{comm_number_of_drives(conf) | replace("\n", "\n * ")}}
 {% if conf["has-secondary-task"] %} * {{comm_eps(conf) | replace("\n", "\n * ")}}
@@ -687,8 +744,15 @@ void {{conf.name}}(
  * {{comm_number_of_drives(conf) | replace("\n", "\n * ")}}
  * {{comm_force_composition_matrix(conf) | replace("\n", "\n * ")}}
  * {{comm_wheel_geometry(conf) | replace("\n", "\n * ")}}
+{% if conf["alignment"]|default("none") == "twist-relaxation" %} * {{comm_weight_platform_algn(conf) | replace("\n", "\n * ")}}
+ * {{comm_weight_align(conf) | replace("\n", "\n * ")}}
+ * {{comm_align_time_constant(conf) | replace("\n", "\n * ")}}
+ * {{comm_align_max_rate(conf) | replace("\n", "\n * ")}}
+{% endif %}{% if conf["wheel-speed-limit"]|default(false) %} * {{comm_hub_velocity_max(conf) | replace("\n", "\n * ")}}
+{% endif %}
  * {{comm_platform_velocity_in(conf) | replace("\n", "\n * ")}}
- * {{comm_pivot_align_out(conf) | replace("\n", "\n * ")}}
+{% if conf["alignment"]|default("none") == "twist-relaxation" or conf["wheel-speed-limit"]|default(false) %} * {{comm_platform_velocity_eff_out(conf) | replace("\n", "\n * ")}}
+{% endif %} * {{comm_drive_velocity_out(conf) | replace("\n", "\n * ")}}
  * {{comm_wheel_velocity_out(conf) | replace("\n", "\n * ")}}
 {%- endmacro -%}
 
@@ -724,16 +788,18 @@ void {{conf.name}}(
 
 {%- macro pltf_vel_pltf_to_whl_sig(conf) -%}
 int num_drv,
-{% if conf["has-secondary-task"] %}double eps,
-{% endif %}const double *g,
+const double *g,
 const double *whl_dia,
 const double *whl_dst,
 const double *cstr_off,
-{% if conf["has-secondary-task"] %}const double *{{pltf_vel_w_drv(conf)}},
+{% if conf["alignment"]|default("none") == "twist-relaxation" %}const double *w_pltf,
+const double *w_algn,
+double tau,
+double qd_max,
+{% endif %}{% if conf["wheel-speed-limit"]|default(false) %}double omega_max,
 {% endif %}const double *xd_pltf,
-{% if conf["has-secondary-task"] %}const double *{{pltf_vel_w_pltf(conf)}},
-{% endif %}{% if conf["has-secondary-task"] %}const double *xd_drv_ref,
-{% endif %}double *q_pvt_algn,
+{% if conf["alignment"]|default("none") == "twist-relaxation" or conf["wheel-speed-limit"]|default(false) %}double *xd_pltf_eff,
+{% endif %}double *xd_drv,
 double *omega_hub
 {%- endmacro -%}
 
@@ -769,6 +835,9 @@ extern "C" {
 
 {{pltf_frc_pltf_to_drv(s)}}
     {%- endif -%}
+{%- elif s.direction|default("composition") == "distribution" and s["output"]|default("pivot") == "hub" %}
+
+{{pltf_vel_pltf_to_whl(s)}}
 {%- elif s.direction|default("composition") == "distribution" %}
 
 {{pltf_vel_pltf_to_drv(s)}}

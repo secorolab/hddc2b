@@ -1110,6 +1110,162 @@ void hddc2b_pltf_dmp(
         double *s_inv);
 
 
+/**
+ * Relax a commanded platform twist so that the drives can align their castors.
+ * The map from the platform twist to the pivot velocities,
+ * @f$\dot{\vect{X}}_d = \vect{G}^T \dot{\vect{X}}_p@f$, is unique: the pivot
+ * points are rigidly attached to the platform, so there is no nullspace in
+ * which a castor alignment task could act without affecting the platform
+ * motion. Alignment is therefore posed as a lower-weighted task that modifies
+ * the twist itself. With @f$\vect{a}_i^T@f$ the row of @f$\vect{G}^T@f$ that
+ * yields the transverse velocity of pivot @f$i@f$ and
+ * @f$\dot{\bar{X}}_{i,y}@f$ the transverse velocity reference (see
+ * @ref hddc2b_drv_vel_algn_ref), the relaxed twist is
+ * @f$\dot{\vect{X}}_{rlx} = \dot{\vect{X}}_p + \vect{\delta}@f$ with
+ * @f[
+ *   \vect{\delta} = \arg\min_{\vect{\delta}}
+ *     \vect{\delta}^T \vect{W}_p \vect{\delta}
+ *     + \sum_i w_{a,i} \left(
+ *         \vect{a}_i^T (\dot{\vect{X}}_p + \vect{\delta})
+ *         - \dot{\bar{X}}_{i,y}
+ *       \right)^2
+ * @f]
+ * which is the @f$3 \times 3@f$ system
+ * @f$(\vect{W}_p + \sum_i w_{a,i} \vect{a}_i \vect{a}_i^T) \vect{\delta}
+ *   = \sum_i w_{a,i} \vect{a}_i (\dot{\bar{X}}_{i,y} - \vect{a}_i^T
+ *   \dot{\vect{X}}_p)@f$.
+ * The ratio of @f$\vect{W}_p@f$ to @f$w_{a,i}@f$ determines how much platform
+ * velocity is given up for alignment. When all references are already met the
+ * twist is returned unchanged.
+ *
+ * @param[in] num_drv The number of drives that the platform consists of.
+ * @param[in] g The force composition matrix @f$\vect{G}@f$ with three rows and
+ *              @f$2 \times {}@f$ @p num_drv columns, measured in the platform's
+ *              origin and its coordinates expressed in the platform's frame.
+ *              The matrix is arranged as @f[
+ *              \begin{bmatrix}
+ *                \frac{\partial{f_{p,x}}}{\partial{f_{1,x}}}
+ *                  & \frac{\partial{f_{p,x}}}{\partial{f_{1,y}}} & \ldots
+ *                  & \frac{\partial{f_{p,x}}}{\partial{f_{n,x}}}
+ *                  & \frac{\partial{f_{p,x}}}{\partial{f_{n,y}}} \\
+ *                \frac{\partial{f_{p,y}}}{\partial{f_{1,x}}}
+ *                  & \frac{\partial{f_{p,y}}}{\partial{f_{1,y}}} & \ldots
+ *                  & \frac{\partial{f_{p,y}}}{\partial{f_{n,x}}}
+ *                  & \frac{\partial{f_{p,y}}}{\partial{f_{n,y}}} \\
+ *                \frac{\partial{m_{p,z}}}{\partial{f_{1,x}}}
+ *                  & \frac{\partial{m_{p,z}}}{\partial{f_{1,y}}} & \ldots
+ *                  & \frac{\partial{m_{p,z}}}{\partial{f_{n,x}}}
+ *                  & \frac{\partial{m_{p,z}}}{\partial{f_{n,y}}}
+ *              \end{bmatrix}
+ *              @f] and must be provided in column-major order. Here,
+ *              @f$f_{p,x}@f$, @f$f_{p,y}@f$ and @f$m_{p,z}@f$ are the platform
+ *              forces and torque, respectively. @f$f_{i,x}@f$ and @f$f_{i,y}@f$
+ *              are the drive's forces.
+ * @param[in] w_pltf The platform's tracking weight matrix @f$\vect{W}_p@f$, a
+ *                   positive-definite @f$3 \times 3@f$ matrix. The weight is
+ *                   measured in the platform's origin and its coordinates are
+ *                   expressed in the platform frame. The matrix is arranged as
+ *                   @f[
+ *                   \begin{bmatrix}
+ *                     w_{p,xx} & w_{p,yx} & w_{p,mx} \\
+ *                     w_{p,xy} & w_{p,yy} & w_{p,my} \\
+ *                     w_{p,xm} & w_{p,ym} & w_{p,mm}
+ *                   \end{bmatrix}
+ *                   @f] where
+ *                   @f$w_{p,yx} = w_{p,xy}@f$, @f$w_{p,mx} = w_{p,xm}@f$
+ *                   and @f$w_{p,my} = w_{p,ym}@f$ and must be provided in
+ *                   column-major order.
+ * @param[in] w_algn An array with @p num_drv elements that represent a
+ *                   non-negative weight @f$w_{a,i}@f$ for each drive's castor
+ *                   alignment task. The array is arranged as @f$
+ *                   \begin{bmatrix}
+ *                     w_{a,1} & \ldots & w_{a,n}
+ *                   \end{bmatrix}@f$.
+ * @param[in] xd_pltf The vector @f$\dot{\vect{X}}_p@f$ with three elements that
+ *                    represent the platform's commanded linear and angular
+ *                    velocity. The linear velocity's reference point is the
+ *                    platform frame's origin. The coordinates are expressed in
+ *                    the platform frame. The vector is arranged as @f$
+ *                    \begin{bmatrix}
+ *                      \dot{X}_{p,x} & \dot{X}_{p,y} & \omega_p
+ *                    \end{bmatrix}@f$.
+ * @param[in] xd_drv_ref The matrix @f$\dot{\bar{\vect{X}}}_d@f$ with two rows
+ *                       and @p num_drv columns where the second row represents
+ *                       the transverse velocity reference of each drive's
+ *                       attachment point. The velocities' coordinates are
+ *                       expressed in the individual drives' pivot frames. The
+ *                       matrix is arranged as @f[
+ *                       \begin{bmatrix}
+ *                         \dot{\bar{X}}_{1,x} & \ldots & \dot{\bar{X}}_{n,x} \\
+ *                         \dot{\bar{X}}_{1,y} & \ldots & \dot{\bar{X}}_{n,y}
+ *                       \end{bmatrix}
+ *                       @f] and must be provided in column-major order. Only
+ *                       the second row is used.
+ * @param[out] xd_pltf_rlx The vector @f$\dot{\vect{X}}_{rlx}@f$ with three
+ *                         elements that represent the relaxed platform linear
+ *                         and angular velocity. The vector is arranged in the
+ *                         same way as @p xd_pltf.
+ */
+void hddc2b_pltf_vel_algn_rlx(
+        int num_drv,
+        const double *g,
+        const double *w_pltf,
+        const double *w_algn,
+        const double *xd_pltf,
+        const double *xd_drv_ref,
+        double *xd_pltf_rlx);
+
+
+/**
+ * Limit the wheel hub speeds by uniformly scaling a platform twist together
+ * with the pivot and hub velocities that were derived from it. If the largest
+ * absolute hub speed exceeds @p omega_max all three quantities are multiplied
+ * by @f$\omega_{max} / \max_i |\omega_i|@f$, else they are left untouched. As
+ * the maps from the platform twist to the pivot and hub velocities are linear
+ * the scaled quantities remain consistent with each other.
+ *
+ * @param[in] num_drv The number of drives that the platform consists of.
+ * @param[in] omega_max The maximum admissible hub speed @f$\omega_{max}@f$.
+ *                      The speed must be positive.
+ * @param[in,out] xd_pltf The vector @f$\dot{\vect{X}}_p@f$ with three elements
+ *                        that represent the platform's linear and angular
+ *                        velocity. The linear velocity's reference point is the
+ *                        platform frame's origin. The coordinates are expressed
+ *                        in the platform frame. The vector is arranged as @f$
+ *                        \begin{bmatrix}
+ *                          \dot{X}_{p,x} & \dot{X}_{p,y} & \omega_p
+ *                        \end{bmatrix}@f$.
+ * @param[in,out] xd_drv The matrix @f$\dot{\vect{X}}_d@f$ with two rows and
+ *                       @p num_drv columns where the rows represent the linear
+ *                       velocity components of the drive's attachment point (to
+ *                       the platform) in the longitudinal and transverse
+ *                       direction, respectively. The linear velocities'
+ *                       reference point is the origin of the respective pivot
+ *                       frames. Their coordinates are expressed in these pivot
+ *                       frames. The matrix is arranged as @f[
+ *                       \begin{bmatrix}
+ *                         \dot{X}_{1,x} & \ldots & \dot{X}_{n,x} \\
+ *                         \dot{X}_{1,y} & \ldots & \dot{X}_{n,y}
+ *                       \end{bmatrix}
+ *                       @f] and must be provided in column-major order.
+ * @param[in,out] omega_hub A matrix with two rows and @p num_drv columns where
+ *                          the rows contain the angular velocity around the
+ *                          right and left wheel axle, respectively. The matrix
+ *                          is arranged as @f[
+ *                          \begin{bmatrix}
+ *                            \omega_{1,r} & \ldots & \omega_{n,r} \\
+ *                            \omega_{1,l} & \ldots & \omega_{n,l}
+ *                          \end{bmatrix}
+ *                          @f] and must be provided in column-major order.
+ */
+void hddc2b_pltf_vel_hub_lim(
+        int num_drv,
+        double omega_max,
+        double *xd_pltf,
+        double *xd_drv,
+        double *omega_hub);
+
+
 #ifdef __cplusplus
 }
 #endif

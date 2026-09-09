@@ -531,16 +531,18 @@ void {{conf.name}}(
 
 {%- macro pltf_vel_pltf_to_whl_sig(conf) -%}
 int num_drv,
-{% if conf["has-secondary-task"] %}double eps,
-{% endif %}const double *g,
+const double *g,
 const double *whl_dia,
 const double *whl_dst,
 const double *cstr_off,
-{% if conf["has-secondary-task"] %}const double *{{pltf_vel_w_drv(conf)}},
+{% if conf["alignment"]|default("none") == "twist-relaxation" %}const double *w_pltf,
+const double *w_algn,
+double tau,
+double qd_max,
+{% endif %}{% if conf["wheel-speed-limit"]|default(false) %}double omega_max,
 {% endif %}const double *xd_pltf,
-{% if conf["has-secondary-task"] %}const double *{{pltf_vel_w_pltf(conf)}},
-{% endif %}{% if conf["has-secondary-task"] %}const double *xd_drv_ref,
-{% endif %}double *q_pvt_algn,
+{% if conf["alignment"]|default("none") == "twist-relaxation" or conf["wheel-speed-limit"]|default(false) %}double *xd_pltf_eff,
+{% endif %}double *xd_drv,
 double *omega_hub
 {%- endmacro -%}
 
@@ -552,43 +554,37 @@ void {{conf.name}}(
     assert(num_drv >= 0);
 
     const int NUM_DRV_COORD = 2;
-    double xd_drv[num_drv * NUM_DRV_COORD];
     double xd_whl[num_drv * NUM_DRV_COORD];
 
-    {%- if conf["has-secondary-task"] %}
+    {%- if conf["alignment"]|default("none") == "twist-relaxation" %}
     double xd_drv_prim[num_drv * NUM_DRV_COORD];
-    double xd_drv_scnd[num_drv * NUM_DRV_COORD];
-    hddc2b_pltf_vel_pltf_to_drv(
-            num_drv,
-            eps,
-            g,
-            w_drv_sqrt,
-            xd_pltf,
-            w_pltf_inv_sqrt,
-            xd_drv_ref,
-            xd_drv_prim,
-            xd_drv_scnd);
+    double dst[num_drv];
+    double xd_drv_ref[num_drv * NUM_DRV_COORD];
+
+    hddc2b_pltf_vel_pltf_to_pvt(num_drv, g, xd_pltf, xd_drv_prim);
+    hddc2b_drv_vel_scrub_dst(num_drv, cstr_off, xd_pltf[2], xd_drv_prim,
+            dst, 1);
+
+    // The castor alignment task only constrains the drives' transverse
+    // velocity, hence the longitudinal reference remains unused
     for (int i = 0; i < num_drv * NUM_DRV_COORD; i++) {
-        xd_drv[i] = xd_drv_prim[i] + xd_drv_scnd[i];
+        xd_drv_ref[i] = 0.0;
     }
+    hddc2b_drv_vel_algn_ref(num_drv, cstr_off, tau, qd_max, xd_pltf[2],
+            dst, &xd_drv_ref[1], NUM_DRV_COORD);
+
+    hddc2b_pltf_vel_algn_rlx(num_drv, g, w_pltf, w_algn, xd_pltf,
+            xd_drv_ref, xd_pltf_eff);
+    hddc2b_pltf_vel_pltf_to_pvt(num_drv, g, xd_pltf_eff, xd_drv);
     {%- else %}
     hddc2b_pltf_vel_pltf_to_pvt(num_drv, g, xd_pltf, xd_drv);
     {%- endif %}
 
-    // Steer each pivot to its rolling direction; afterwards the attachment
-    // velocity is purely longitudinal with magnitude |Ẋ_d|, so the transverse
-    // (scrubbing) component is absorbed by the pivot instead of being pushed
-    // into the wheels (which would amplify it by 0.5 * r/l and inflate the
-    // wheel speeds).
-    hddc2b_drv_vel_algn_dst(num_drv, xd_drv, q_pvt_algn, 1);
-    for (int i = 0; i < num_drv; i++) {
-        xd_drv[i * NUM_DRV_COORD + 0] = hypot(xd_drv[i * NUM_DRV_COORD + 0],
-                                              xd_drv[i * NUM_DRV_COORD + 1]);
-        xd_drv[i * NUM_DRV_COORD + 1] = 0.0;
-    }
-
     hddc2b_drv_vel_pvt_to_gnd(num_drv, whl_dst, cstr_off, xd_drv, xd_whl);
     hddc2b_whl_vel_gnd_to_hub(num_drv, whl_dia, xd_whl, omega_hub);
+    {%- if conf["wheel-speed-limit"]|default(false) %}
+    hddc2b_pltf_vel_hub_lim(num_drv, omega_max, xd_pltf_eff, xd_drv, omega_hub);
+    {%- endif %}
 }
 {% endmacro -%}
 
@@ -610,6 +606,9 @@ void {{conf.name}}(
 
 {{pltf_frc_pltf_to_drv(s)}}
     {%- endif -%}
+{%- elif s.direction|default("composition") == "distribution" and s["output"]|default("pivot") == "hub" %}
+
+{{pltf_vel_pltf_to_whl(s)}}
 {%- elif s.direction|default("composition") == "distribution" %}
 
 {{pltf_vel_pltf_to_drv(s)}}

@@ -44,9 +44,11 @@ hddc2b:SolverConfiguration
         sh:datatype xsd:string ;
         sh:nodeKind sh:Literal
     ] ;
-    # Plain velocity distribution and force composition wrappers without a
-    # secondary task need none of the weighting, inverse or nullspace machinery;
-    # every other solver requires the full set.
+    # Velocity distribution is a unique map without a nullspace: it takes the
+    # alignment, output-level and wheel-speed-limit policies but none of the
+    # weighting, inverse or secondary-task machinery. Force composition is a
+    # plain sum and takes none of these. Every other solver requires the full
+    # least-squares set.
     sh:or (
         [
             sh:property [
@@ -59,12 +61,46 @@ hddc2b:SolverConfiguration
                 sh:hasValue hddc2b:distribution ;
                 sh:minCount 1
             ] ;
-            sh:not [
-                sh:property [
-                    sh:path hddc2b:has-secondary-task ;
-                    sh:hasValue true
+            sh:property [
+                sh:path hddc2b:has-secondary-task ;
+                sh:maxCount 0
+            ] ;
+            sh:property [
+                sh:path hddc2b:alignment ;
+                sh:maxCount 1 ;
+                sh:in ( hddc2b:none hddc2b:twist-relaxation ) ;
+                sh:nodeKind sh:IRI
+            ] ;
+            sh:property [
+                sh:path hddc2b:output ;
+                sh:maxCount 1 ;
+                sh:in ( hddc2b:pivot hddc2b:hub ) ;
+                sh:nodeKind sh:IRI
+            ] ;
+            sh:property [
+                sh:path hddc2b:wheel-speed-limit ;
+                sh:maxCount 1 ;
+                sh:datatype xsd:boolean ;
+                sh:nodeKind sh:Literal
+            ] ;
+            # the hub speeds can only be limited when they are produced
+            sh:or (
+                [
+                    sh:not [
+                        sh:property [
+                            sh:path hddc2b:wheel-speed-limit ;
+                            sh:hasValue true
+                        ]
+                    ]
                 ]
-            ]
+                [
+                    sh:property [
+                        sh:path hddc2b:output ;
+                        sh:hasValue hddc2b:hub ;
+                        sh:minCount 1
+                    ]
+                ]
+            )
         ]
         [
             sh:property [
@@ -126,6 +162,18 @@ hddc2b:SolverConfiguration
                 sh:maxCount 1 ;
                 sh:in ( hddc2b:pseudoinverse hddc2b:damped-least-squares ) ;
                 sh:nodeKind sh:IRI
+            ] ;
+            sh:property [
+                sh:path hddc2b:alignment ;
+                sh:maxCount 0
+            ] ;
+            sh:property [
+                sh:path hddc2b:output ;
+                sh:maxCount 0
+            ] ;
+            sh:property [
+                sh:path hddc2b:wheel-speed-limit ;
+                sh:maxCount 0
             ]
         ]
     ) .

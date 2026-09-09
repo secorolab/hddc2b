@@ -51,6 +51,17 @@
                     "type": "string",
                     "enum": [ "pseudoinverse", "damped-least-squares" ]
                 },
+                "alignment": {
+                    "type": "string",
+                    "enum": [ "none", "twist-relaxation" ]
+                },
+                "output": {
+                    "type": "string",
+                    "enum": [ "pivot", "hub" ]
+                },
+                "wheel-speed-limit": {
+                    "type": "boolean"
+                },
                 "description": {
                     "type": "array",
                     "items": { "type": "string" }
@@ -80,8 +91,9 @@
                 ]
             },
             "then": {
-                "comment": "Plain velocity distribution and force composition wrappers without a secondary task need no weighting, inverse or nullspace.",
-                "required": [ "name", "quantity", "direction", "description" ]
+                "comment": "Velocity distribution is a unique map without nullspace, force composition a plain sum; neither uses weighting, inverse or a secondary task.",
+                "required": [ "name", "quantity", "direction", "description" ],
+                "not": { "required": [ "has-secondary-task" ] }
             },
             "else": {
                 "required": [
@@ -91,7 +103,14 @@
                     "weight-in-drive-space",
                     "has-secondary-task",
                     "inverse"
-                ]
+                ],
+                "not": {
+                    "anyOf": [
+                        { "required": [ "alignment" ] },
+                        { "required": [ "output" ] },
+                        { "required": [ "wheel-speed-limit" ] }
+                    ]
+                }
             },
             "allOf": [
                 {
@@ -109,6 +128,21 @@
                             "weight-in-drive-space",
                             "inverse"
                         ]
+                    }
+                },
+                {
+                    "if": {
+                        "properties": {
+                            "wheel-speed-limit": { "const": true }
+                        },
+                        "required": [ "wheel-speed-limit" ]
+                    },
+                    "then": {
+                        "comment": "The hub speeds are only available for hub-level output.",
+                        "properties": {
+                            "output": { "const": "hub" }
+                        },
+                        "required": [ "output" ]
                     }
                 }
             ]

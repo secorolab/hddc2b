@@ -45,6 +45,23 @@
                 "damped-least-squares": "hddc2b:damped-least-squares"
             }
         },
+        "alignment": {
+            "@id": "hddc2b:alignment",
+            "@type": "@vocab",
+            "@context": {
+                "none": "hddc2b:none",
+                "twist-relaxation": "hddc2b:twist-relaxation"
+            }
+        },
+        "output": {
+            "@id": "hddc2b:output",
+            "@type": "@vocab",
+            "@context": {
+                "pivot": "hddc2b:pivot",
+                "hub": "hddc2b:hub"
+            }
+        },
+        "wheel-speed-limit": "hddc2b:wheel-speed-limit",
         "description": {
             "@id": "hddc2b:description",
             "@type": "xsd:string",

@@ -108,20 +108,26 @@
             ]
         },
         {
+            "name": "ex_vel_pltf_to_pvt",
+            "quantity": "velocity",
+            "direction": "distribution",
+            "description": [
+                "Distribute a platform twist to the pivot velocities. The map is unique",
+                "(the kinematic dual of force composition)."
+            ]
+        },
+        {
             "name": "hddc2b_example_vel_dist",
             "quantity": "velocity",
             "direction": "distribution",
-            "preprocess-platform-weight": false,
-            "preprocess-drive-weight": false,
-            "weight-in-platform-space": true,
-            "weight-in-drive-space": true,
-            "has-secondary-task": true,
-            "inverse": "pseudoinverse",
+            "alignment": "twist-relaxation",
+            "output": "hub",
+            "wheel-speed-limit": true,
             "description": [
-                "Distribute a platform-level velocity to the pivot frames.",
-                "The distribution is split into an exact primary platform-twist task",
-                "and a secondary drive-space velocity reference projected into the",
-                "platform-task nullspace."
+                "Distribute a platform twist to the wheel hub speeds. Castor alignment is",
+                "a lower-weighted task that relaxes the twist, since the unique",
+                "platform-to-pivot map leaves no nullspace for it. The hub speeds are",
+                "limited by scaling the relaxed twist uniformly."
             ]
         }
     ]
