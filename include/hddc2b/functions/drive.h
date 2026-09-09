@@ -294,7 +294,7 @@ void hddc2b_drv_vel_algn_dst(
  *                 \end{bmatrix}@f$.
  * @param[in] inc_dst Increment of the @p dst array.
  */
-void hddc2b_drv_vel_scrub_dst(
+void hddc2b_drv_vel_scrb_dst(
         int num_drv,
         const double *cstr_off,
         double omega_pltf,
@@ -332,10 +332,11 @@ void hddc2b_drv_vel_scrub_dst(
  * @param[in] omega_pltf The platform's angular velocity @f$\omega_p@f$.
  * @param[in] dst An array with @p num_drv elements that represent the scrub
  *                angle of each drive, as computed by
- *                @ref hddc2b_drv_vel_scrub_dst. The array is arranged as @f$
+ *                @ref hddc2b_drv_vel_scrb_dst. The array is arranged as @f$
  *                \begin{bmatrix}
  *                  dst_1 & \ldots & dst_n
  *                \end{bmatrix}@f$.
+ * @param[in] inc_dst Increment of the @p dst array.
  * @param[out] xd_ref An array with @p num_drv elements that represent the
  *                    transverse velocity reference
  *                    @f$\bar{\dot{X}}_{i,y}@f$ of each drive's attachment
@@ -354,6 +355,7 @@ void hddc2b_drv_vel_algn_ref(
         double qd_max,
         double omega_pltf,
         const double *dst,
+        int inc_dst,
         double *xd_ref,
         int inc_ref);
 

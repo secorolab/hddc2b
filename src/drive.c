@@ -153,7 +153,7 @@ void hddc2b_drv_vel_algn_dst(
 }
 
 
-void hddc2b_drv_vel_scrub_dst(
+void hddc2b_drv_vel_scrb_dst(
         int num_drv,
         const double *cstr_off,
         double omega_pltf,
@@ -202,6 +202,7 @@ void hddc2b_drv_vel_algn_ref(
         double qd_max,
         double omega_pltf,
         const double *dst,
+        int inc_dst,
         double *xd_ref,
         int inc_ref)
 {
@@ -210,6 +211,7 @@ void hddc2b_drv_vel_algn_ref(
     assert(tau > 0.0);
     assert(qd_max >= 0.0);
     assert(dst);
+    assert(inc_dst >= 0);
     assert(xd_ref);
     assert(inc_ref >= 0);
 
@@ -219,7 +221,7 @@ void hddc2b_drv_vel_algn_ref(
         // Rate at which the castor turns with respect to the platform to
         // remove the scrub angle within the time constant, saturated at the
         // maximum castor rate
-        double qd = dst[i] / tau;
+        double qd = dst[i * inc_dst] / tau;
         if (qd > qd_max) {
             qd = qd_max;
         }

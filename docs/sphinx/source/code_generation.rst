@@ -69,12 +69,31 @@ Each solver configuration object must be comprised of the following properties.
 
   - For the *force distribution* solver the secondary task is specified in the drive space (e.g. for aligning the drive units with a lower priority than solving the platform-level task).
   - For the *velocity composition* solver the secondary task is specified in the platform space.
-  - For the *velocity distribution* solver the secondary task is specified in the drive space and projected into the nullspace of the platform-velocity task.
+  - The *velocity distribution* solver must not set this property: the platform-to-pivot map is unique, so it has no nullspace for a secondary task to act in. Use ``alignment`` instead.
 
 * ``inverse`` [**string**]: the type of inverse to compute. The value must either be
 
   - ``pseudoinverse`` for computing a `(scalar) pseudoinverse <https://en.wikipedia.org/wiki/Moore%E2%80%93Penrose_inverse#Scalars>`_; or
   - ``damped-least-squares`` for computing a damped inverse akin to `ridge regression <https://en.wikipedia.org/wiki/Ridge_regression#Relation_to_singular-value_decomposition_and_Wiener_filter>`_.
+
+The next three properties only apply to the *velocity distribution* solver; every other solver must omit them.
+
+* ``alignment`` [**string**, optional]: determine whether the solver steers the drives' castors towards their rolling direction. The value must either be
+
+  - ``none`` (the default) for distributing the commanded twist as it is; or
+  - ``twist-relaxation`` for treating the castor alignment as a lower-priority task.
+
+  Because the platform-to-pivot map is unique there is no nullspace to project such a task into, so ``twist-relaxation`` instead lets the alignment task modify the commanded twist itself, weighted against a platform tracking weight.
+  The solver then takes the tracking weight, the per-drive alignment weights, an alignment time constant and a maximum castor rate as additional arguments, and reports the resulting twist as ``xd_pltf_eff``.
+
+* ``output`` [**string**, optional]: the level at which the distribution stops. The value must either be
+
+  - ``pivot`` (the default) for stopping at the drives' pivot velocities; or
+  - ``hub`` for continuing through the castor and wheel kinematics to the wheel-hub velocities.
+
+  The ``hub`` solver additionally takes the wheel geometry (diameter, wheel distance and castor offset) and returns the hub velocities alongside the pivot velocities.
+
+* ``wheel-speed-limit`` [**boolean**, optional]: use this flag to scale the twist down until every wheel-hub speed is within a commanded maximum. Because the whole chain is linear, the twist, the pivot velocities and the hub velocities are scaled by the same factor and stay consistent with each other. This requires ``output`` to be ``hub``, as only that solver produces the hub speeds.
 
 * ``description``: an array of strings that will be used as a comment in the generated header file
 

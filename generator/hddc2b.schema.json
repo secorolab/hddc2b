@@ -91,9 +91,8 @@
                 ]
             },
             "then": {
-                "comment": "Velocity distribution is a unique map without nullspace, force composition a plain sum; neither uses weighting, inverse or a secondary task.",
-                "required": [ "name", "quantity", "direction", "description" ],
-                "not": { "required": [ "has-secondary-task" ] }
+                "comment": "Velocity distribution is a unique map without nullspace, force composition a plain sum; neither uses weighting or an inverse.",
+                "required": [ "name", "quantity", "direction", "description" ]
             },
             "else": {
                 "required": [
@@ -113,6 +112,19 @@
                 }
             },
             "allOf": [
+                {
+                    "if": {
+                        "properties": {
+                            "quantity": { "const": "velocity" },
+                            "direction": { "const": "distribution" }
+                        },
+                        "required": [ "quantity", "direction" ]
+                    },
+                    "then": {
+                        "comment": "The platform-to-pivot map is unique, so there is no nullspace for a secondary task to act in.",
+                        "not": { "required": [ "has-secondary-task" ] }
+                    }
+                },
                 {
                     "if": {
                         "properties": {

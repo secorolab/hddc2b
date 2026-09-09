@@ -978,22 +978,28 @@ void hddc2b_pltf_vel_algn_rlx(
 void hddc2b_pltf_vel_hub_lim(
         int num_drv,
         double omega_max,
-        double *xd_pltf,
-        double *xd_drv,
-        double *omega_hub)
+        const double *xd_pltf_in,
+        const double *xd_drv_in,
+        const double *omega_hub_in,
+        double *xd_pltf_out,
+        double *xd_drv_out,
+        double *omega_hub_out)
 {
     assert(num_drv >= 0);
     assert(omega_max > 0.0);
-    assert(xd_pltf);
-    assert(xd_drv);
-    assert(omega_hub);
+    assert(xd_pltf_in);
+    assert(xd_drv_in);
+    assert(omega_hub_in);
+    assert(xd_pltf_out);
+    assert(xd_drv_out);
+    assert(omega_hub_out);
 
     const int LDO = 2;  // leading dimension of "omega_hub" matrix
 
     // The largest hub speed magnitude determines by how much to scale down
     double omega_peak = 0.0;
     for (int i = 0; i < num_drv * LDO; i++) {
-        double omega_abs = fabs(omega_hub[i]);
+        double omega_abs = fabs(omega_hub_in[i]);
         if (omega_abs > omega_peak) {
             omega_peak = omega_abs;
         }
@@ -1009,12 +1015,12 @@ void hddc2b_pltf_vel_hub_lim(
     // are linear. Hence, scaling all three quantities by the same factor keeps
     // them consistent with each other.
     for (int i = 0; i < NUM_PLTF_COORD; i++) {
-        xd_pltf[i] *= scale;
+        xd_pltf_out[i] = scale * xd_pltf_in[i];
     }
     for (int i = 0; i < num_drv * NUM_DRV_COORD; i++) {
-        xd_drv[i] *= scale;
+        xd_drv_out[i] = scale * xd_drv_in[i];
     }
     for (int i = 0; i < num_drv * LDO; i++) {
-        omega_hub[i] *= scale;
+        omega_hub_out[i] = scale * omega_hub_in[i];
     }
 }

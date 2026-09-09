@@ -353,55 +353,6 @@ double eps,
 {%- endmacro -%}
 
 
-{%- macro pltf_vel_dist_ref_wgh(conf, ns) -%}
-{%- if conf["weight-in-drive-space"] %}
-    double g2[num_drv * NUM_G_COORD];
-    double xd_drv_ref2[num_drv * NUM_DRV_COORD];
-    hddc2b_pltf_vel_sing_wgh(num_drv, {{ns.g}}, {{ns.xd_drv_ref}}, w_drv_sqrt, g2, xd_drv_ref2);
-{%- set ns.g = "g2" -%}
-{%- set ns.xd_drv_ref = "xd_drv_ref2" %}
-{%- else -%}
-{%- set ns.g = "g" -%}
-{%- set ns.xd_drv_ref = "xd_drv_ref" -%}
-{%- endif -%}
-{%- endmacro -%}
-
-
-{%- macro pltf_vel_dist_pltf_wgh_init(conf, ns) -%}
-{%- if conf["weight-in-platform-space"] %}
-    double g3[num_drv * NUM_G_COORD];
-    hddc2b_pltf_vel_redu_wgh_init(num_drv, {{ns.g}}, w_pltf_inv_sqrt, g3);
-{%- set ns.g = "g3" %}
-{%- endif -%}
-{%- endmacro -%}
-
-
-{%- macro pltf_vel_dist_slv(conf, ns) %}
-    double xd_pltf_ref2[NUM_PLTF_COORD];
-    hddc2b_pltf_vel_slv(num_drv, u, s_inv, vt, {{ns.xd_drv_ref}}, xd_pltf_ref2);
-{%- set ns.xd_pltf_ref = "xd_pltf_ref2" -%}
-{%- endmacro -%}
-
-
-{%- macro pltf_vel_dist_pltf_wgh_fini(conf, ns) -%}
-{%- if conf["weight-in-platform-space"] %}
-    double xd_pltf_ref3[NUM_PLTF_COORD];
-    hddc2b_pltf_vel_redu_wgh_fini(num_drv, {{ns.xd_pltf_ref}}, w_pltf_inv_sqrt, xd_pltf_ref3);
-{%- set ns.xd_pltf_ref = "xd_pltf_ref3" %}
-{%- endif -%}
-{%- endmacro -%}
-
-
-{%- macro pltf_vel_dist_scnd_fini(conf, ns) %}
-    double xd_drv_proj[num_drv * NUM_DRV_COORD];
-    hddc2b_pltf_vel_pltf_to_pvt(num_drv, g, {{ns.xd_pltf_ref}}, xd_drv_proj);
-
-    for (int i = 0; i < num_drv * NUM_DRV_COORD; i++) {
-        xd_drv_scnd[i] = xd_drv_ref[i] - xd_drv_proj[i];
-    }
-{%- endmacro -%}
-
-
 {%- macro pltf_vel_drv_to_pltf(conf) -%}
 void {{conf.name}}(
 {{pltf_vel_drv_to_pltf_sig(conf) | indent(width=8, first=true)}})
@@ -479,17 +430,9 @@ void {{conf.name}}(
 
 {%- macro pltf_vel_pltf_to_drv_sig(conf) -%}
 int num_drv,
-{% if conf["has-secondary-task"] %}double eps,
-{% if conf["inverse"] == "damped-least-squares" %}double lambda,
-{% endif %}{% endif %}const double *g,
-{% if conf["has-secondary-task"] and conf["weight-in-drive-space"] %}const double *{{pltf_vel_w_drv(conf)}},
-{% endif %}const double *xd_pltf,
-{% if conf["has-secondary-task"] and conf["weight-in-platform-space"] %}const double *{{pltf_vel_w_pltf(conf)}},
-{% endif %}{% if conf["has-secondary-task"] %}const double *xd_drv_ref,
-double *xd_drv_prim,
-double *xd_drv_scnd
-{% else %}double *xd_drv
-{% endif %}
+const double *g,
+const double *xd_pltf,
+double *xd_drv
 {%- endmacro -%}
 
 
@@ -499,32 +442,7 @@ void {{conf.name}}(
 {
     assert(num_drv >= 0);
 
-    {%- if conf["has-secondary-task"] %}
-    const int NUM_DRV_COORD  = 2;
-    const int NUM_PLTF_COORD = 3;
-    const int NUM_G_COORD    = NUM_PLTF_COORD * NUM_DRV_COORD;
-    {%- set ns = namespace(
-                        g           = "g",
-                        xd_drv_ref  = "xd_drv_ref",
-                        xd_pltf_ref = "xd_pltf_ref2") %}
-
-    hddc2b_pltf_vel_pltf_to_pvt(num_drv, g, xd_pltf, xd_drv_prim);
-
-{%- if conf["preprocess-platform-weight"] %}
-{{ pltf_vel_w_pltf_inv_sqrt(conf) }}
-{%- endif %}
-{%- if conf["preprocess-drive-weight"] %}
-{{ pltf_vel_w_drv_sqrt(conf) }}
-{%- endif %}
-{{ pltf_vel_dist_ref_wgh(conf, ns) }}
-{{ pltf_vel_dist_pltf_wgh_init(conf, ns) }}
-{{ pltf_slv_dcmp_inv(conf, ns) }}
-{{ pltf_vel_dist_slv(conf, ns) }}
-{{ pltf_vel_dist_pltf_wgh_fini(conf, ns) }}
-{{ pltf_vel_dist_scnd_fini(conf, ns) }}
-    {%- else %}
     hddc2b_pltf_vel_pltf_to_pvt(num_drv, g, xd_pltf, xd_drv);
-    {%- endif %}
 }
 {% endmacro -%}
 
@@ -562,7 +480,7 @@ void {{conf.name}}(
     double xd_drv_ref[num_drv * NUM_DRV_COORD];
 
     hddc2b_pltf_vel_pltf_to_pvt(num_drv, g, xd_pltf, xd_drv_prim);
-    hddc2b_drv_vel_scrub_dst(num_drv, cstr_off, xd_pltf[2], xd_drv_prim,
+    hddc2b_drv_vel_scrb_dst(num_drv, cstr_off, xd_pltf[2], xd_drv_prim,
             dst, 1);
 
     // The castor alignment task only constrains the drives' transverse
@@ -571,7 +489,7 @@ void {{conf.name}}(
         xd_drv_ref[i] = 0.0;
     }
     hddc2b_drv_vel_algn_ref(num_drv, cstr_off, tau, qd_max, xd_pltf[2],
-            dst, &xd_drv_ref[1], NUM_DRV_COORD);
+            dst, 1, &xd_drv_ref[1], NUM_DRV_COORD);
 
     hddc2b_pltf_vel_algn_rlx(num_drv, g, w_pltf, w_algn, xd_pltf,
             xd_drv_ref, xd_pltf_eff);
@@ -583,7 +501,9 @@ void {{conf.name}}(
     hddc2b_drv_vel_pvt_to_gnd(num_drv, whl_dst, cstr_off, xd_drv, xd_whl);
     hddc2b_whl_vel_gnd_to_hub(num_drv, whl_dia, xd_whl, omega_hub);
     {%- if conf["wheel-speed-limit"]|default(false) %}
-    hddc2b_pltf_vel_hub_lim(num_drv, omega_max, xd_pltf_eff, xd_drv, omega_hub);
+    hddc2b_pltf_vel_hub_lim(num_drv, omega_max,
+            xd_pltf_eff, xd_drv, omega_hub,
+            xd_pltf_eff, xd_drv, omega_hub);
     {%- endif %}
 }
 {% endmacro -%}

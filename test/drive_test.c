@@ -208,6 +208,152 @@ START_TEST(test_power_must_be_equal_in_both_spaces)
 END_TEST
 
 
+START_TEST(test_hddc2b_drv_vel_scrb_dst_platform_at_rest)
+{
+    // While the platform does not rotate, the castor does not have to turn
+    // along with it and the scrub angle reduces to the pivot alignment
+    // distance of @ref hddc2b_drv_vel_algn_dst.
+    double xd_drv[NUM_DRV * NUM_DRV_COORD] = {
+         1.0,  0.0,                 // fl: aligned (rolls along +x)
+         0.0,  1.0,                 // rl: 90 deg off
+         1.0,  1.0,                 // rr: 45 deg off
+        -1.0,  0.0                  // fr: 180 deg off
+    };
+    double dst[NUM_DRV] = { 0.0, 0.0, 0.0, 0.0 };
+    double res[NUM_DRV] = {
+        0.0,
+        M_PI_2,
+        M_PI_4,
+        M_PI
+    };
+
+    hddc2b_drv_vel_scrb_dst(NUM_DRV, castor_offset, 0.0, xd_drv, dst, 1);
+
+    for (int i = 0; i < NUM_DRV; i++) {
+        ck_assert_dbl_eq(dst[i], res[i]);
+    }
+}
+END_TEST
+
+
+START_TEST(test_hddc2b_drv_vel_scrb_dst_platform_rotating)
+{
+    // The angle is measured at the wheel axle's centre for a castor that turns
+    // with the platform: at "omega_pltf" that centre moves transversely at
+    // "l omega_p", so a drive whose pivot provides exactly that scrubs not at
+    // all, however fast the platform spins.
+    const double omega_pltf = 2.0;  // castor offset 0.01 m: l * omega_p = 0.02
+    double xd_drv[NUM_DRV * NUM_DRV_COORD] = {
+         1.0,  0.02,                // fl: turns along, no scrubbing
+         0.02, 0.04,                // rl: 45 deg off
+         0.0,  0.52,                // rr: 90 deg off
+        -1.0,  0.02                 // fr: 180 deg off
+    };
+    double dst[NUM_DRV] = { 0.0, 0.0, 0.0, 0.0 };
+    double res[NUM_DRV] = {
+        0.0,
+        M_PI_4,
+        M_PI_2,
+        M_PI
+    };
+
+    hddc2b_drv_vel_scrb_dst(NUM_DRV, castor_offset, omega_pltf, xd_drv, dst, 1);
+
+    for (int i = 0; i < NUM_DRV; i++) {
+        ck_assert_dbl_eq(dst[i], res[i]);
+    }
+}
+END_TEST
+
+
+START_TEST(test_hddc2b_drv_vel_scrb_dst_degenerate)
+{
+    // A drive that rolls exactly backwards is steered counter-clockwise for
+    // either sign of the transverse zero, and below the velocity tolerance
+    // there is no direction to align to at all.
+    double xd_drv[NUM_DRV * NUM_DRV_COORD] = {
+        -1.0,  0.0,                 // fl: backwards, transverse +0
+        -1.0, -0.0,                 // rl: backwards, transverse -0
+         0.0,  0.0,                 // rr: at rest
+         1e-6, 0.0                  // fr: below the velocity tolerance
+    };
+    double dst[NUM_DRV] = { 0.0, 0.0, 0.0, 0.0 };
+    double res[NUM_DRV] = {
+        M_PI,
+        M_PI,
+        0.0,
+        0.0
+    };
+
+    hddc2b_drv_vel_scrb_dst(NUM_DRV, castor_offset, 0.0, xd_drv, dst, 1);
+
+    for (int i = 0; i < NUM_DRV; i++) {
+        ck_assert_dbl_eq(dst[i], res[i]);
+    }
+}
+END_TEST
+
+
+START_TEST(test_hddc2b_drv_vel_algn_ref)
+{
+    // The transverse velocity that removes the scrub angle within "tau",
+    // saturated at "qd_max"; the castor offset turns the rate into a velocity.
+    const double tau    = 0.1;
+    const double qd_max = 5.0;
+    double dst[NUM_DRV] = {
+        0.0,                        // fl: aligned, no pivot motion needed
+        0.5,                        // rl: 0.5 / 0.1 = 5 rad/s
+       -0.5,                        // rr: -5 rad/s
+        M_PI                        // fr: 31.4 rad/s, saturated at 5 rad/s
+    };
+    double xd_ref[NUM_DRV];
+    double res[NUM_DRV] = {         // l * qd
+        0.0,
+        0.05,
+       -0.05,
+        0.05
+    };
+
+    hddc2b_drv_vel_algn_ref(NUM_DRV, castor_offset, tau, qd_max, 0.0,
+            dst, 1, xd_ref, 1);
+
+    for (int i = 0; i < NUM_DRV; i++) {
+        ck_assert_dbl_eq(xd_ref[i], res[i]);
+    }
+}
+END_TEST
+
+
+START_TEST(test_hddc2b_drv_vel_algn_ref_strided)
+{
+    // Written into the transverse row of a drive velocity matrix, leaving the
+    // longitudinal row alone. An aligned drive still turns with the platform,
+    // so its reference is the castor's share of the platform rotation.
+    const double omega_pltf = 3.0;
+    double dst[NUM_DRV] = { 0.0, 0.0, 0.0, 0.0 };
+    double xd_ref[NUM_DRV * NUM_DRV_COORD] = {
+        1.0, 0.0,                   // fl-x, fl-y
+        2.0, 0.0,                   // rl-x, rl-y
+        3.0, 0.0,                   // rr-x, rr-y
+        4.0, 0.0                    // fr-x, fr-y
+    };
+    double res[NUM_DRV * NUM_DRV_COORD] = {
+        1.0, 0.03,                  // l * omega_pltf
+        2.0, 0.03,
+        3.0, 0.03,
+        4.0, 0.03
+    };
+
+    hddc2b_drv_vel_algn_ref(NUM_DRV, castor_offset, 0.1, 5.0, omega_pltf,
+            dst, 1, &xd_ref[1], NUM_DRV_COORD);
+
+    for (int i = 0; i < NUM_DRV * NUM_DRV_COORD; i++) {
+        ck_assert_dbl_eq(xd_ref[i], res[i]);
+    }
+}
+END_TEST
+
+
 TCase *hddc2b_drive_test(void)
 {
     TCase *tc = tcase_create("drive");
@@ -217,6 +363,11 @@ TCase *hddc2b_drive_test(void)
     tcase_add_test(tc, test_hddc2b_drv_vel_gnd_to_pvt);
     tcase_add_test(tc, test_hddc2b_drv_vel_pvt_to_gnd);
     tcase_add_test(tc, test_hddc2b_drv_vel_algn_dst);
+    tcase_add_test(tc, test_hddc2b_drv_vel_scrb_dst_platform_at_rest);
+    tcase_add_test(tc, test_hddc2b_drv_vel_scrb_dst_platform_rotating);
+    tcase_add_test(tc, test_hddc2b_drv_vel_scrb_dst_degenerate);
+    tcase_add_test(tc, test_hddc2b_drv_vel_algn_ref);
+    tcase_add_test(tc, test_hddc2b_drv_vel_algn_ref_strided);
     tcase_add_test(tc, test_power_must_be_equal_in_both_spaces);
 
     return tc;

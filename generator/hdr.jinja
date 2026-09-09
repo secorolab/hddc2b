@@ -596,57 +596,11 @@ void {{conf.name}}(
 {%- endmacro -%}
 
 
-{%- macro comm_drive_velocity_reference(conf) -%}
-@param[in] xd_drv_ref The matrix @f$\dot{\bar{\vect{X}}}_d@f$ with two rows and
-                      @p num_drv columns where the rows represent the linear
-                      velocity reference components that are projected into the
-                      nullspace of the platform task. The velocities'
-                      coordinates are expressed in the individual drives'
-                      pivot frames. The matrix is arranged as @f[
-                      \begin{bmatrix}
-                        \dot{\bar{X}}_{1,x} & \ldots & \dot{\bar{X}}_{n,x} \\
-                        \dot{\bar{X}}_{1,y} & \ldots & \dot{\bar{X}}_{n,y}
-                      \end{bmatrix}
-                      @f] and will be provided in column-major order.
-{%- endmacro -%}
-
-
-{%- macro comm_drive_velocity_primary(conf) -%}
-@param[out] xd_drv_prim The matrix @f$\dot{\vect{X}}_{prim}@f$ with two rows
-                        and @p num_drv columns that represents the primary-task
-                        drive velocities resulting from distributing the
-                        platform-level velocity @p xd_pltf. The matrix is
-                        arranged the same as @p xd_drv_ref and will be provided
-                        in column-major order.
-{%- endmacro -%}
-
-
-{%- macro comm_drive_velocity_secondary(conf) -%}
-@param[out] xd_drv_scnd The matrix @f$\dot{\vect{X}}_{scnd}@f$ with two rows
-                        and @p num_drv columns that represents the part of
-                        @p xd_drv_ref projected into the nullspace of the
-                        platform-level task. The matrix is arranged the same
-                        as @p xd_drv_ref and will be provided in column-major
-                        order. The combined drive velocity is
-                        @f$\dot{\vect{X}}_d =
-                        \dot{\vect{X}}_{prim} +
-                        \dot{\vect{X}}_{scnd}@f$.
-{%- endmacro -%}
-
-
 {%- macro comm_wheel_velocity_out(conf) -%}
 @param[out] omega_hub The matrix with two rows and @p num_drv columns where the
                       rows contain the angular velocity around the right and
                       left wheel axle, respectively. The matrix is arranged in
                       column-major order.
-{%- endmacro -%}
-
-
-{%- macro comm_pivot_align_out(conf) -%}
-@param[out] q_pvt_algn An array with @p num_drv elements that represent the
-                       pivot alignment distance, i.e. the angle by which each
-                       pivot must be steered so that its drive rolls without
-                       lateral scrubbing for the commanded platform twist.
 {%- endmacro -%}
 
 
@@ -721,22 +675,9 @@ void {{conf.name}}(
 
 {%- macro pltf_vel_pltf_to_drv_comm(conf) %}
  * {{comm_number_of_drives(conf) | replace("\n", "\n * ")}}
-{% if conf["has-secondary-task"] %} * {{comm_eps(conf) | replace("\n", "\n * ")}}
-{% if conf["inverse"] == "damped-least-squares" %} * {{comm_lambda(conf) | replace("\n", "\n * ")}}
-{% endif %}
-{% endif %}
  * {{comm_force_composition_matrix(conf) | replace("\n", "\n * ")}}
-{% if conf["has-secondary-task"] and conf["weight-in-drive-space"] %} * {{comm_weight_drive_vel(conf) | replace("\n", "\n * ")}}
-{% endif %}
  * {{comm_platform_velocity_in(conf) | replace("\n", "\n * ")}}
-{% if conf["has-secondary-task"] and conf["weight-in-platform-space"] %} * {{comm_weight_platform_vel(conf) | replace("\n", "\n * ")}}
-{% endif %}
-{% if conf["has-secondary-task"] %}
- * {{comm_drive_velocity_reference(conf) | replace("\n", "\n * ")}}
- * {{comm_drive_velocity_primary(conf) | replace("\n", "\n * ")}}
- * {{comm_drive_velocity_secondary(conf) | replace("\n", "\n * ")}}
-{% else %} * {{comm_drive_velocity_out(conf) | replace("\n", "\n * ")}}
-{% endif %}
+ * {{comm_drive_velocity_out(conf) | replace("\n", "\n * ")}}
 {%- endmacro -%}
 
 
@@ -749,8 +690,7 @@ void {{conf.name}}(
  * {{comm_align_time_constant(conf) | replace("\n", "\n * ")}}
  * {{comm_align_max_rate(conf) | replace("\n", "\n * ")}}
 {% endif %}{% if conf["wheel-speed-limit"]|default(false) %} * {{comm_hub_velocity_max(conf) | replace("\n", "\n * ")}}
-{% endif %}
- * {{comm_platform_velocity_in(conf) | replace("\n", "\n * ")}}
+{% endif %} * {{comm_platform_velocity_in(conf) | replace("\n", "\n * ")}}
 {% if conf["alignment"]|default("none") == "twist-relaxation" or conf["wheel-speed-limit"]|default(false) %} * {{comm_platform_velocity_eff_out(conf) | replace("\n", "\n * ")}}
 {% endif %} * {{comm_drive_velocity_out(conf) | replace("\n", "\n * ")}}
  * {{comm_wheel_velocity_out(conf) | replace("\n", "\n * ")}}
@@ -759,17 +699,9 @@ void {{conf.name}}(
 
 {%- macro pltf_vel_pltf_to_drv_sig(conf) -%}
 int num_drv,
-{% if conf["has-secondary-task"] %}double eps,
-{% if conf["inverse"] == "damped-least-squares" %}double lambda,
-{% endif %}{% endif %}const double *g,
-{% if conf["has-secondary-task"] and conf["weight-in-drive-space"] %}const double *{{pltf_vel_w_drv(conf)}},
-{% endif %}const double *xd_pltf,
-{% if conf["has-secondary-task"] and conf["weight-in-platform-space"] %}const double *{{pltf_vel_w_pltf(conf)}},
-{% endif %}{% if conf["has-secondary-task"] %}const double *xd_drv_ref,
-double *xd_drv_prim,
-double *xd_drv_scnd
-{% else %}double *xd_drv
-{% endif %}
+const double *g,
+const double *xd_pltf,
+double *xd_drv
 {%- endmacro -%}
 
 

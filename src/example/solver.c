@@ -253,50 +253,61 @@ void ex_vel_pvt_to_pltf_sing_dls(
 }
 
 
-void hddc2b_example_vel_dist(
+void ex_vel_pltf_to_pvt(
         int num_drv,
-        double eps,
         const double *g,
-        const double *w_drv_sqrt,
         const double *xd_pltf,
-        const double *w_pltf_inv_sqrt,
-        const double *xd_drv_ref,
-        double *xd_drv_prim,
-        double *xd_drv_scnd
-)
+        double *xd_drv)
 {
     assert(num_drv >= 0);
-    const int NUM_DRV_COORD  = 2;
-    const int NUM_PLTF_COORD = 3;
-    const int NUM_G_COORD    = NUM_PLTF_COORD * NUM_DRV_COORD;
+
+    hddc2b_pltf_vel_pltf_to_pvt(num_drv, g, xd_pltf, xd_drv);
+}
+
+
+void hddc2b_example_vel_dist(
+        int num_drv,
+        const double *g,
+        const double *whl_dia,
+        const double *whl_dst,
+        const double *cstr_off,
+        const double *w_pltf,
+        const double *w_algn,
+        double tau,
+        double qd_max,
+        double omega_max,
+        const double *xd_pltf,
+        double *xd_pltf_eff,
+        double *xd_drv,
+        double *omega_hub)
+{
+    assert(num_drv >= 0);
+
+    const int NUM_DRV_COORD = 2;
+    double xd_whl[num_drv * NUM_DRV_COORD];
+    double xd_drv_prim[num_drv * NUM_DRV_COORD];
+    double dst[num_drv];
+    double xd_drv_ref[num_drv * NUM_DRV_COORD];
 
     hddc2b_pltf_vel_pltf_to_pvt(num_drv, g, xd_pltf, xd_drv_prim);
+    hddc2b_drv_vel_scrb_dst(num_drv, cstr_off, xd_pltf[2], xd_drv_prim,
+            dst, 1);
 
-    double g2[num_drv * NUM_G_COORD];
-    double xd_drv_ref2[num_drv * NUM_DRV_COORD];
-    hddc2b_pltf_vel_sing_wgh(num_drv, g, xd_drv_ref, w_drv_sqrt, g2, xd_drv_ref2);
-
-    double g3[num_drv * NUM_G_COORD];
-    hddc2b_pltf_vel_redu_wgh_init(num_drv, g2, w_pltf_inv_sqrt, g3);
-
-    double u[NUM_PLTF_COORD * NUM_PLTF_COORD];
-    double s[NUM_PLTF_COORD];
-    double vt[num_drv * NUM_G_COORD];
-    hddc2b_pltf_dcmp(num_drv, g3, u, s, vt);
-
-    double s_inv[NUM_PLTF_COORD];
-    hddc2b_pltf_pinv(num_drv, eps, s, s_inv);
-
-    double xd_pltf_ref2[NUM_PLTF_COORD];
-    hddc2b_pltf_vel_slv(num_drv, u, s_inv, vt, xd_drv_ref2, xd_pltf_ref2);
-
-    double xd_pltf_ref3[NUM_PLTF_COORD];
-    hddc2b_pltf_vel_redu_wgh_fini(num_drv, xd_pltf_ref2, w_pltf_inv_sqrt, xd_pltf_ref3);
-
-    double xd_drv_proj[num_drv * NUM_DRV_COORD];
-    hddc2b_pltf_vel_pltf_to_pvt(num_drv, g, xd_pltf_ref3, xd_drv_proj);
-
+    // The castor alignment task only constrains the drives' transverse
+    // velocity, hence the longitudinal reference remains unused
     for (int i = 0; i < num_drv * NUM_DRV_COORD; i++) {
-        xd_drv_scnd[i] = xd_drv_ref[i] - xd_drv_proj[i];
+        xd_drv_ref[i] = 0.0;
     }
+    hddc2b_drv_vel_algn_ref(num_drv, cstr_off, tau, qd_max, xd_pltf[2],
+            dst, 1, &xd_drv_ref[1], NUM_DRV_COORD);
+
+    hddc2b_pltf_vel_algn_rlx(num_drv, g, w_pltf, w_algn, xd_pltf,
+            xd_drv_ref, xd_pltf_eff);
+    hddc2b_pltf_vel_pltf_to_pvt(num_drv, g, xd_pltf_eff, xd_drv);
+
+    hddc2b_drv_vel_pvt_to_gnd(num_drv, whl_dst, cstr_off, xd_drv, xd_whl);
+    hddc2b_whl_vel_gnd_to_hub(num_drv, whl_dia, xd_whl, omega_hub);
+    hddc2b_pltf_vel_hub_lim(num_drv, omega_max,
+            xd_pltf_eff, xd_drv, omega_hub,
+            xd_pltf_eff, xd_drv, omega_hub);
 }

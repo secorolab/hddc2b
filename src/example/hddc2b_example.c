@@ -300,85 +300,66 @@ int main(void)
 
 
     //
-    // Velocity distribution from a commanded platform twist, with a separated
-    // primary and secondary task.
-    // The primary task is the unique platform-twist distribution; the secondary
-    // task keeps the part of a drive-space velocity reference that induces no
-    // platform twist. The combined drive velocity is then steered to its
-    // rolling direction and mapped to the wheel hubs.
+    // Velocity distribution from a commanded platform twist, all the way to the
+    // wheel hubs.
+    // The platform-to-pivot map is unique, so there is no nullspace in which a
+    // castor alignment task could act. Alignment is instead a lower-weighted
+    // task that relaxes the commanded twist itself, and the hub speeds are kept
+    // within their maximum by scaling that relaxed twist uniformly. Both
+    // policies are selected in "example.hddc2b.json"; the code generator
+    // composes them into the solver called here.
     //
     double xd_platform_cmd[NUM_PLTF_COORD] = {  // [m/s], [m/s], [rad/s]
         1.0, 0.0, 0.0                           // vx, vy, omega
     };
-    double xd_drive_ref[NUM_DRV * NUM_DRV_COORD] = {    // [m/s], [m/s]
-        0.0, 0.0,
-        0.0, 0.0,
-        0.0, 0.0,
-        0.0, 0.0
+
+    // Weight of each drive's castor alignment task, relative to the platform
+    // tracking weight "w_platform". The entry here excludes the front-right
+    // drive unit from the alignment, as "w_drive" excludes it from the force
+    // distribution.
+    double w_align_vel[NUM_DRV] = {
+        0.1, 0.1, 0.1, 0.0                      // fl, rl, rr, fr
     };
-    double q_pvt_algn[NUM_DRV];                     // [rad]
+
+    // Time constant within which to remove a castor's scrub angle, the upper
+    // bound on the castor rate that may cost, and the hub speed limit.
+    double align_tau    = 0.1;                  // [s]
+    double align_qd_max = 10.0;                 // [rad/s]
+    double omega_max    = 40.0;                 // [rad/s]
+
+    double xd_platform_eff[NUM_PLTF_COORD];         // [m/s], [m/s], [rad/s]
+    double xd_cmd_drive[NUM_DRV * NUM_DRV_COORD];   // [m/s], [m/s]
     double omega_wheel[NUM_DRV * NUM_WHL_COORD];    // [rad/s], [rad/s]
 
-    // Velocity-level pivot alignment reference for the secondary task.
-    hddc2b_pltf_drv_vel_algn_dst(NUM_DRV,
-            drive_attachment,
-            w_align,
-            pivot_angle,
-            xd_platform_cmd,
-            &xd_drive_ref[1],
-            2);
-
-    // The velocity solver consumes the (inverse) square-root weights directly,
-    // so derive them from the same weight matrices used for the force task.
-    double w_drv_sqrt[NUM_DRV * 4];
-    hddc2b_pltf_vel_w_drv_sqrt(NUM_DRV, w_drive, w_drv_sqrt);
-    double w_pltf_inv_sqrt[NUM_PLTF_COORD * NUM_PLTF_COORD];
-    hddc2b_pltf_vel_w_pltf_inv_sqrt(w_platform, w_pltf_inv_sqrt);
-
-    // Separated primary/secondary drive velocities. Drive velocities are
-    // expressed in each drive's pivot frame.
-    double xd_prim[NUM_DRV * NUM_DRV_COORD];    // [m/s]
-    double xd_scnd[NUM_DRV * NUM_DRV_COORD];    // [m/s]
     hddc2b_example_vel_dist(NUM_DRV,
-            EPS,
             g,
-            w_drv_sqrt,
-            xd_platform_cmd,
-            w_pltf_inv_sqrt,
-            xd_drive_ref,
-            xd_prim,
-            xd_scnd);
-    printf("\nxd_prim:\n");
-    print_matrix(NUM_DRV_COORD, NUM_DRV, xd_prim);
-    printf("\nxd_scnd:\n");
-    print_matrix(NUM_DRV_COORD, NUM_DRV, xd_scnd);
-
-    // Compose the distributed drive velocity to the wheel-hub actuators.
-    double xd_cmd_drive[NUM_DRV * NUM_DRV_COORD];    // [m/s]
-    double xd_cmd_ground[NUM_DRV * NUM_DRV_COORD];   // [m/s]
-    for (int i = 0; i < NUM_DRV * NUM_DRV_COORD; i++) {
-        xd_cmd_drive[i] = xd_prim[i] + xd_scnd[i];
-    }
-    hddc2b_drv_vel_algn_dst(NUM_DRV, xd_cmd_drive, q_pvt_algn, 1);
-    for (int i = 0; i < NUM_DRV; i++) {
-        xd_cmd_drive[i * NUM_DRV_COORD + 0] =
-                hypot(xd_cmd_drive[i * NUM_DRV_COORD + 0],
-                      xd_cmd_drive[i * NUM_DRV_COORD + 1]);
-        xd_cmd_drive[i * NUM_DRV_COORD + 1] = 0.0;
-    }
-    hddc2b_drv_vel_pvt_to_gnd(NUM_DRV,
+            wheel_diameter,
             wheel_distance,
             castor_offset,
+            w_platform,
+            w_align_vel,
+            align_tau,
+            align_qd_max,
+            omega_max,
+            xd_platform_cmd,
+            xd_platform_eff,
             xd_cmd_drive,
-            xd_cmd_ground);
-    hddc2b_whl_vel_gnd_to_hub(NUM_DRV,
-            wheel_diameter,
-            xd_cmd_ground,
             omega_wheel);
-    printf("\npivot alignment distance [rad]:\n");
-    print_matrix(1, NUM_DRV, q_pvt_algn);
+    printf("\nxd_platform_eff:\n");
+    print_matrix(NUM_PLTF_COORD, 1, xd_platform_eff);
+    printf("\nxd_cmd_drive:\n");
+    print_matrix(NUM_DRV_COORD, NUM_DRV, xd_cmd_drive);
     printf("\nomega_wheel:\n");
     print_matrix(NUM_WHL_COORD, NUM_DRV, omega_wheel);
+
+    // The angle by which each pivot must be steered so that its drive rolls
+    // without lateral scrubbing for the effective twist. The pivots are passive
+    // on the real drive units, so this is a reference to steer towards through
+    // the wheels, not a command of its own.
+    double q_pvt_algn[NUM_DRV];                     // [rad]
+    hddc2b_drv_vel_algn_dst(NUM_DRV, xd_cmd_drive, q_pvt_algn, 1);
+    printf("\npivot alignment distance [rad]:\n");
+    print_matrix(1, NUM_DRV, q_pvt_algn);
     printf("\n");
 
     return 0;
