@@ -293,6 +293,14 @@ void hddc2b_drv_vel_algn_dst(
  *                   dst_1 & \ldots & dst_n
  *                 \end{bmatrix}@f$.
  * @param[in] inc_dst Increment of the @p dst array.
+ * @param[out] spd An array with @p num_drv elements that represent the speed
+ *                 @f$v_i@f$ of each drive's axle centre, i.e. the magnitude of
+ *                 the velocity whose direction @p dst is. The array is
+ *                 arranged as @f$
+ *                 \begin{bmatrix}
+ *                   v_1 & \ldots & v_n
+ *                 \end{bmatrix}@f$.
+ * @param[in] inc_spd Increment of the @p spd array.
  */
 void hddc2b_drv_vel_scrb_dst(
         int num_drv,
@@ -300,7 +308,9 @@ void hddc2b_drv_vel_scrb_dst(
         double omega_pltf,
         const double *xd_drv,
         double *dst,
-        int inc_dst);
+        int inc_dst,
+        double *spd,
+        int inc_spd);
 
 
 /**
@@ -309,13 +319,21 @@ void hddc2b_drv_vel_scrb_dst(
  * the world when its pivot point moves transversely at @f$\dot{X}_{i,y}@f$, so
  * the reference
  * @f[
- *   \bar{\dot{X}}_{i,y} = l_i \left(
- *     \operatorname{clip}\left(\frac{dst_i}{\tau}, \pm\dot{q}_{max}\right)
+ *   \dot{\bar{X}}_{i,y} = l_i \left(
+ *     \operatorname{clip}\left(
+ *       \min\left(\frac{1}{\tau}, \frac{v_i}{l_i}\right) dst_i,
+ *       \pm\dot{q}_{max}\right)
  *     + \omega_p \right)
  * @f]
  * turns the castor with the platform and additionally drives the scrub angle
- * to zero with time constant @f$\tau@f$, at most at the rate
- * @f$\dot{q}_{max}@f$ relative to the platform.
+ * to zero, at most at the rate @f$\dot{q}_{max}@f$ relative to the platform.
+ *
+ * A castor aligns by rolling: left to itself a trailing castor decays its
+ * scrub angle with the time constant @f$l_i / v_i@f$, so at the speed
+ * @f$v_i@f$ the drive currently rolls at that is as fast as the wheels can
+ * steer it without fighting the platform motion. The effective time constant
+ * is therefore the slower of @f$\tau@f$ and @f$l_i / v_i@f$, which also means
+ * that a drive at a standstill is not asked to swing at all.
  *
  * @param[in] num_drv The number of drives that this function is applied to.
  * @param[in] cstr_off The castor offset, an array with @p num_drv elements that
@@ -325,8 +343,8 @@ void hddc2b_drv_vel_scrb_dst(
  *                     \begin{bmatrix}
  *                       co_1 & \ldots & co_n
  *                     \end{bmatrix}@f$.
- * @param[in] tau The time constant @f$\tau@f$ within which to remove the scrub
- *                angle. The time constant must be positive.
+ * @param[in] tau The shortest time constant @f$\tau@f$ within which to remove
+ *                the scrub angle. The time constant must be positive.
  * @param[in] qd_max The maximum castor rate @f$\dot{q}_{max}@f$ with respect to
  *                   the platform. The rate must be non-negative.
  * @param[in] omega_pltf The platform's angular velocity @f$\omega_p@f$.
@@ -337,6 +355,13 @@ void hddc2b_drv_vel_scrb_dst(
  *                  dst_1 & \ldots & dst_n
  *                \end{bmatrix}@f$.
  * @param[in] inc_dst Increment of the @p dst array.
+ * @param[in] spd An array with @p num_drv elements that represent the speed
+ *                @f$v_i@f$ of each drive's axle centre, as computed by
+ *                @ref hddc2b_drv_vel_scrb_dst. The array is arranged as @f$
+ *                \begin{bmatrix}
+ *                  v_1 & \ldots & v_n
+ *                \end{bmatrix}@f$.
+ * @param[in] inc_spd Increment of the @p spd array.
  * @param[out] xd_ref An array with @p num_drv elements that represent the
  *                    transverse velocity reference
  *                    @f$\bar{\dot{X}}_{i,y}@f$ of each drive's attachment
@@ -356,6 +381,8 @@ void hddc2b_drv_vel_algn_ref(
         double omega_pltf,
         const double *dst,
         int inc_dst,
+        const double *spd,
+        int inc_spd,
         double *xd_ref,
         int inc_ref);
 

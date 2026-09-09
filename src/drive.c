@@ -159,13 +159,17 @@ void hddc2b_drv_vel_scrb_dst(
         double omega_pltf,
         const double *xd_drv,
         double *dst,
-        int inc_dst)
+        int inc_dst,
+        double *spd,
+        int inc_spd)
 {
     assert(num_drv >= 0);
     assert(cstr_off);
     assert(xd_drv);
     assert(dst);
     assert(inc_dst >= 0);
+    assert(spd);
+    assert(inc_spd >= 0);
 
     for (int i = 0; i < num_drv; i++) {
         int x = 0 + i * 2;  // longitudinal velocity
@@ -176,9 +180,10 @@ void hddc2b_drv_vel_scrb_dst(
         // platform, i.e. that does not move with respect to the platform
         double vx = xd_drv[x];
         double vy = xd_drv[y] - l * omega_pltf;
+        double v = hypot(vx, vy);
 
         double d = 0.0;
-        if (hypot(vx, vy) > EPS) {
+        if (v > EPS) {
             d = atan2(vy, vx);
 
             // For a drive that rolls exactly backwards atan2 returns either
@@ -191,6 +196,7 @@ void hddc2b_drv_vel_scrb_dst(
         }
 
         dst[i * inc_dst] = d;
+        spd[i * inc_spd] = v;
     }
 }
 
@@ -203,6 +209,8 @@ void hddc2b_drv_vel_algn_ref(
         double omega_pltf,
         const double *dst,
         int inc_dst,
+        const double *spd,
+        int inc_spd,
         double *xd_ref,
         int inc_ref)
 {
@@ -212,16 +220,24 @@ void hddc2b_drv_vel_algn_ref(
     assert(qd_max >= 0.0);
     assert(dst);
     assert(inc_dst >= 0);
+    assert(spd);
+    assert(inc_spd >= 0);
     assert(xd_ref);
     assert(inc_ref >= 0);
 
     for (int i = 0; i < num_drv; i++) {
         double l = cstr_off[i];
 
+        assert(fabs(l) > 0.0);
+
         // Rate at which the castor turns with respect to the platform to
-        // remove the scrub angle within the time constant, saturated at the
-        // maximum castor rate
-        double qd = dst[i * inc_dst] / tau;
+        // remove the scrub angle, saturated at the maximum castor rate.
+        // A castor aligns by rolling: left to itself it decays its scrub angle
+        // with the time constant "l / v", so asking for more than that at the
+        // speed it currently rolls at commands a pivot rate the wheels cannot
+        // sustain. Hence the time constant is the slower of the two.
+        double qd = fmin(1.0 / tau, spd[i * inc_spd] / fabs(l))
+                  * dst[i * inc_dst];
         if (qd > qd_max) {
             qd = qd_max;
         }

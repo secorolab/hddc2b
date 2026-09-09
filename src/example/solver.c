@@ -287,11 +287,12 @@ void hddc2b_example_vel_dist(
     double xd_whl[num_drv * NUM_DRV_COORD];
     double xd_drv_prim[num_drv * NUM_DRV_COORD];
     double dst[num_drv];
+    double spd[num_drv];
     double xd_drv_ref[num_drv * NUM_DRV_COORD];
 
     hddc2b_pltf_vel_pltf_to_pvt(num_drv, g, xd_pltf, xd_drv_prim);
     hddc2b_drv_vel_scrb_dst(num_drv, cstr_off, xd_pltf[2], xd_drv_prim,
-            dst, 1);
+            dst, 1, spd, 1);
 
     // The castor alignment task only constrains the drives' transverse
     // velocity, hence the longitudinal reference remains unused
@@ -299,7 +300,7 @@ void hddc2b_example_vel_dist(
         xd_drv_ref[i] = 0.0;
     }
     hddc2b_drv_vel_algn_ref(num_drv, cstr_off, tau, qd_max, xd_pltf[2],
-            dst, 1, &xd_drv_ref[1], NUM_DRV_COORD);
+            dst, 1, spd, 1, &xd_drv_ref[1], NUM_DRV_COORD);
 
     hddc2b_pltf_vel_algn_rlx(num_drv, g, w_pltf, w_algn, xd_pltf,
             xd_drv_ref, xd_pltf_eff);
