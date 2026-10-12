@@ -1,5 +1,6 @@
-find_package(lapacke REQUIRED)
-find_package(cblas REQUIRED)
+find_package(BLAS REQUIRED)
+find_package(LAPACK REQUIRED)
+find_library(LAPACKE_LIBRARY NAMES lapacke REQUIRED)
 find_library(MATH_LIBRARY m)
 
 add_library(hddc2b SHARED
@@ -20,8 +21,9 @@ target_include_directories(hddc2b
 
 target_link_libraries(hddc2b
   PRIVATE
-    cblas
-    lapacke
+    ${LAPACKE_LIBRARY}
+    LAPACK::LAPACK
+    BLAS::BLAS
     ${MATH_LIBRARY}
 )
 
