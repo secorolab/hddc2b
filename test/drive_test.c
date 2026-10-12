@@ -107,6 +107,61 @@ START_TEST(test_hddc2b_drv_vel_gnd_to_pvt)
 END_TEST
 
 
+START_TEST(test_hddc2b_drv_vel_pvt_to_gnd)
+{
+    double xd_drv[NUM_DRV * NUM_DRV_COORD] = {
+         1.0,  0.0,                 // fl-x, fl-y
+        -1.0,  0.0,                 // rl-x, rl-y
+         0.0, -0.25806452,          // rr-x, rr-y
+         0.0,  0.25806452           // fr-x, fr-y
+    };
+    double xd_whl[NUM_DRV * NUM_GND_COORD];
+    double res[NUM_DRV * NUM_GND_COORD] = {
+        -1.0,  1.0,                 // fl-r, fl-l
+         1.0, -1.0,                 // rl-r, rl-l
+         1.0,  1.0,                 // rr-r, rr-l
+        -1.0, -1.0                  // fr-r, fr-l
+    };
+
+    hddc2b_drv_vel_pvt_to_gnd(
+            NUM_DRV,
+            wheel_distance,
+            castor_offset,
+            xd_drv,
+            xd_whl);
+
+    for (int i = 0; i < NUM_DRV * NUM_GND_COORD; i++) {
+        ck_assert_dbl_eq(xd_whl[i], res[i]);
+    }
+}
+END_TEST
+
+
+START_TEST(test_hddc2b_drv_vel_algn_dst)
+{
+    double xd_drv[NUM_DRV * NUM_DRV_COORD] = {
+         1.0,  0.0,                 // fl: aligned (rolls along +x)
+         0.0,  1.0,                 // rl: 90 deg off
+         1.0,  1.0,                 // rr: 45 deg off
+        -1.0,  0.0                  // fr: 180 deg off
+    };
+    double dst[NUM_DRV] = { 0.0, 0.0, 0.0, 0.0 };
+    double res[NUM_DRV] = {
+        0.0,
+        M_PI_2,
+        M_PI_4,
+        M_PI
+    };
+
+    hddc2b_drv_vel_algn_dst(NUM_DRV, xd_drv, dst, 1);
+
+    for (int i = 0; i < NUM_DRV; i++) {
+        ck_assert_dbl_eq(dst[i], res[i]);
+    }
+}
+END_TEST
+
+
 START_TEST(test_power_must_be_equal_in_both_spaces)
 {
     double xd_whl[NUM_DRV * NUM_GND_COORD] = {
@@ -160,6 +215,8 @@ TCase *hddc2b_drive_test(void)
     tcase_add_test(tc, test_hddc2b_drv_frc_gnd_to_pvt);
     tcase_add_test(tc, test_hddc2b_drv_frc_pvt_to_gnd);
     tcase_add_test(tc, test_hddc2b_drv_vel_gnd_to_pvt);
+    tcase_add_test(tc, test_hddc2b_drv_vel_pvt_to_gnd);
+    tcase_add_test(tc, test_hddc2b_drv_vel_algn_dst);
     tcase_add_test(tc, test_power_must_be_equal_in_both_spaces);
 
     return tc;

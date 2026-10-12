@@ -106,6 +106,22 @@
                 "Find a solution to the velocity composition problem for a situation where the",
                 "platform is **singular** (less than one drive unit)."
             ]
+        },
+        {
+            "name": "ex_vel_pltf_to_pvt",
+            "quantity": "velocity",
+            "direction": "distribution",
+            "description": [
+                "Distribute a platform twist to the pivot velocities."
+            ]
+        },
+        {
+            "name": "ex_frc_pvt_to_pltf",
+            "quantity": "force",
+            "direction": "composition",
+            "description": [
+                "Compose a platform wrench from the drive forces."
+            ]
         }
     ]
 }

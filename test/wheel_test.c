@@ -103,6 +103,35 @@ START_TEST(test_hddc2b_whl_vel_hub_to_gnd)
 END_TEST
 
 
+START_TEST(test_hddc2b_whl_vel_gnd_to_hub)
+{
+    double xd_whl[NUM_DRV * NUM_GND_COORD] = {
+        -0.007188,  0.007188,   // fl-r, fl-l
+         0.007188, -0.007188,   // rl-r, rl-l
+         0.007188,  0.007188,   // rr-r, rr-l
+        -0.007188, -0.007188    // fr-r, fr-l
+    };
+    double omega_hub[NUM_DRV * NUM_WHL_COORD];
+    double res[NUM_DRV * NUM_WHL_COORD] = {
+        -0.125,  0.125,         // fl-r, fl-l
+         0.125, -0.125,         // rl-r, rl-l
+         0.125,  0.125,         // rr-r, rr-l
+        -0.125, -0.125          // fr-r, fr-l
+    };
+
+    hddc2b_whl_vel_gnd_to_hub(
+            NUM_DRV,
+            wheel_diameter,
+            xd_whl,
+            omega_hub);
+
+    for (int i = 0; i < NUM_DRV * NUM_WHL_COORD; i++) {
+        ck_assert_dbl_eq(omega_hub[i], res[i]);
+    }
+}
+END_TEST
+
+
 START_TEST(test_power_must_be_equal_in_both_spaces)
 {
     double omega_hub[NUM_DRV * NUM_WHL_COORD] = {

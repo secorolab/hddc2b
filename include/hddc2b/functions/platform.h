@@ -550,6 +550,30 @@ void hddc2b_pltf_frc_slv(
         double *f_drv);
 
 
+/**
+ * Distribute a platform twist to the drives' pivot velocities:
+ * @f[
+ *   \dot{\vect{X}}_d = \vect{G}^T \dot{\vect{X}}_p
+ * @f]
+ * The map is unique (the kinematic dual of @ref hddc2b_pltf_frc_pvt_to_pltf),
+ * so it needs no weighting, inverse or nullspace.
+ *
+ * @param[in] num_drv The number of drives that the platform consists of.
+ * @param[in] g The force composition matrix, arranged as in
+ *              @ref hddc2b_pltf_frc_pvt_to_pltf.
+ * @param[in] xd_pltf The platform twist @f$[v_x, v_y, \omega]@f$ in the
+ *                    platform frame.
+ * @param[out] xd_drv The longitudinal and transverse velocity of each pivot,
+ *                    expressed in its pivot frame, arranged as in
+ *                    @ref hddc2b_pltf_vel_slv.
+ */
+void hddc2b_pltf_vel_pltf_to_pvt(
+        int num_drv,
+        const double *g,
+        const double *xd_pltf,
+        double *xd_drv);
+
+
 
 
 /**

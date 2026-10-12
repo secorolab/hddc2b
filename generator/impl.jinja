@@ -155,6 +155,20 @@ void {{conf.name}}(
 {% endmacro -%}
 
 
+{%- macro pltf_frc_drv_to_pltf(conf) -%}
+void {{conf.name}}(
+        int num_drv,
+        const double *g,
+        const double *f_drv,
+        double *f_pltf)
+{
+    assert(num_drv >= 0);
+
+    hddc2b_pltf_frc_pvt_to_pltf(num_drv, g, f_drv, f_pltf);
+}
+{% endmacro -%}
+
+
 
 
 {%- macro pltf_vel_w_pltf(conf) %}
@@ -295,13 +309,40 @@ void {{conf.name}}(
 {% endmacro -%}
 
 
+{%- macro pltf_vel_pltf_to_drv_sig(conf) -%}
+int num_drv,
+const double *g,
+const double *xd_pltf,
+double *xd_drv
+{%- endmacro -%}
+
+
+{%- macro pltf_vel_pltf_to_drv(conf) -%}
+void {{conf.name}}(
+{{pltf_vel_pltf_to_drv_sig(conf) | indent(width=8, first=true)}})
+{
+    assert(num_drv >= 0);
+
+    hddc2b_pltf_vel_pltf_to_pvt(num_drv, g, xd_pltf, xd_drv);
+}
+{% endmacro -%}
+
+
 #include <hddc2b/functions/platform.h>
-#include <solver.h>
+#include <{{ header | default("solver") }}.h>
 #include <assert.h>
 {% for s in solvers -%}
-{%- if s["quantity"] == "force" %}
+{%- if s["quantity"] == "force" -%}
+    {%- if s.direction|default("distribution") == "composition" %}
+
+{{pltf_frc_drv_to_pltf(s)}}
+    {%- else %}
 
 {{pltf_frc_pltf_to_drv(s)}}
+    {%- endif -%}
+{%- elif s.direction|default("composition") == "distribution" %}
+
+{{pltf_vel_pltf_to_drv(s)}}
 {%- else %}
 
 {{pltf_vel_drv_to_pltf(s)}}

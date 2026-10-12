@@ -181,6 +181,20 @@ double eps,
 {%- endmacro -%}
 
 
+{%- macro comm_drive_force_in(conf) -%}
+@param[in] f_drv The matrix @f$\vect{F}_d@f$ with two rows and @p num_drv
+                 columns where the rows represent the linear force components
+                 that each drive exerts on the platform. The forces'
+                 coordinates are expressed in the individual drives' pivot
+                 frames. The matrix is arranged as @f[
+                 \begin{bmatrix}
+                   f_{1,x} & \ldots & f_{n,x} \\
+                   f_{1,y} & \ldots & f_{n,y}
+                 \end{bmatrix}
+                 @f] and must be provided in column-major order.
+{%- endmacro -%}
+
+
 {%- macro pltf_frc_pltf_to_drv_comm(conf) %}
  * {{comm_number_of_drives(conf) | replace("\n", "\n * ")}}
  * {{comm_eps(conf) | replace("\n", "\n * ")}}
@@ -204,6 +218,42 @@ double eps,
  */
 void {{conf.name}}(
 {{pltf_frc_pltf_to_drv_sig(conf) | indent(width=8, first=true)}});
+{% endmacro -%}
+
+
+{%- macro comm_platform_force_out(conf) -%}
+@param[out] f_pltf The vector @f$\vect{F}_p@f$ with three elements that
+                   represent a force and torque on the platform. The torque's
+                   reference point is the platform's origin. The coordinates
+                   are expressed in the platform frame. The vector is arranged
+                   as @f$
+                   \begin{bmatrix}
+                     f_{p,x} & f_{p,y} & m_p
+                   \end{bmatrix}@f$.
+{%- endmacro -%}
+
+
+{%- macro pltf_frc_drv_to_pltf_comm(conf) %}
+ * {{comm_number_of_drives(conf) | replace("\n", "\n * ")}}
+ * {{comm_force_composition_matrix(conf) | replace("\n", "\n * ")}}
+ * {{comm_drive_force_in(conf) | replace("\n", "\n * ")}}
+ * {{comm_platform_force_out(conf) | replace("\n", "\n * ")}}
+{%- endmacro -%}
+
+
+{%- macro pltf_frc_drv_to_pltf(conf) -%}
+/**
+{%- for l in conf["description"] +%}
+ * {{l}}
+{%- endfor %}
+ *
+{{- pltf_frc_drv_to_pltf_comm(conf) }}
+ */
+void {{conf.name}}(
+        int num_drv,
+        const double *g,
+        const double *f_drv,
+        double *f_pltf);
 {% endmacro -%}
 
 
@@ -377,21 +427,87 @@ void {{conf.name}}(
 {% endmacro -%}
 
 
+{%- macro comm_drive_velocity_out(conf) -%}
+@param[out] xd_drv The matrix @f$\dot{\vect{X}}_d@f$ with two rows and
+                   @p num_drv columns where the rows represent the linear
+                   velocity components of each drive. The velocities'
+                   reference point is the origin of the individual drives'
+                   pivot frames and the coordinates are expressed in these
+                   pivot frames. The matrix is arranged as @f[
+                   \begin{bmatrix}
+                     \dot{X}_{1,x} & \ldots & \dot{X}_{n,x} \\
+                     \dot{X}_{1,y} & \ldots & \dot{X}_{n,y}
+                   \end{bmatrix}
+                   @f] and will be provided in column-major order.
+{%- endmacro -%}
 
-#ifndef HDDC2B_SOLVER_H
-#define HDDC2B_SOLVER_H
+
+{%- macro comm_platform_velocity_in(conf) -%}
+@param[in] xd_pltf The vector @f$\dot{\vect{X}}_p@f$ with three elements
+                   that represent the linear and angular velocity of the
+                   platform. The linear velocity's reference point is the
+                   platform's origin. The coordinates are expressed in the
+                   platform frame. The vector is arranged as @f$
+                   \begin{bmatrix}
+                     v_{p,x} & v_{p,y} & \omega_p
+                   \end{bmatrix}@f$.
+{%- endmacro -%}
+
+
+{%- macro pltf_vel_pltf_to_drv_comm(conf) %}
+ * {{comm_number_of_drives(conf) | replace("\n", "\n * ")}}
+ * {{comm_force_composition_matrix(conf) | replace("\n", "\n * ")}}
+ * {{comm_platform_velocity_in(conf) | replace("\n", "\n * ")}}
+ * {{comm_drive_velocity_out(conf) | replace("\n", "\n * ")}}
+{%- endmacro -%}
+
+
+{%- macro pltf_vel_pltf_to_drv_sig(conf) -%}
+int num_drv,
+const double *g,
+const double *xd_pltf,
+double *xd_drv
+{%- endmacro -%}
+
+
+{%- macro pltf_vel_pltf_to_drv(conf) -%}
+/**
+{%- for l in conf["description"] +%}
+ * {{l}}
+{%- endfor %}
+ *
+{{- pltf_vel_pltf_to_drv_comm(conf) }}
+ */
+void {{conf.name}}(
+{{pltf_vel_pltf_to_drv_sig(conf) | indent(width=8, first=true)}});
+{% endmacro -%}
+
+
+
+{% set guard = "HDDC2B_" ~ (header | default("solver")) | upper ~ "_H" -%}
+#ifndef {{ guard }}
+#define {{ guard }}
 
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+{% for s in solvers -%}
+{%- if s["quantity"] == "force" -%}
+    {%- if s.direction|default("distribution") == "composition" %}
 
-{% for s in solvers %}
-{%- if s["quantity"] == "force" %}
+{{pltf_frc_drv_to_pltf(s)}}
+    {%- else %}
+
 {{pltf_frc_pltf_to_drv(s)}}
-{% else %}
+    {%- endif -%}
+{%- elif s.direction|default("composition") == "distribution" %}
+
+{{pltf_vel_pltf_to_drv(s)}}
+{%- else %}
+
 {{pltf_vel_drv_to_pltf(s)}}
-{% endif -%}
+{%- endif -%}
 {% endfor %}
 #ifdef __cplusplus
 }

@@ -25,6 +25,10 @@
                     "type": "string",
                     "enum": [ "force", "velocity" ]
                 },
+                "direction": {
+                    "type": "string",
+                    "enum": [ "composition", "distribution" ]
+                },
                 "preprocess-platform-weight": {
                     "type": "boolean"
                 },
@@ -49,17 +53,39 @@
                     "items": { "type": "string" }
                 }
             },
-            "required": [
-                "name",
-                "quantity",
-                "preprocess-platform-weight",
-                "preprocess-drive-weight",
-                "weight-in-platform-space",
-                "weight-in-drive-space",
-                "has-secondary-task",
-                "inverse",
-                "description"
-            ]
+            "required": [ "name", "quantity", "description" ],
+            "if": {
+                "$comment": "Velocity distribution and force composition are unique maps without weighting, inverse or nullspace.",
+                "anyOf": [
+                    {
+                        "properties": {
+                            "quantity": { "const": "velocity" },
+                            "direction": { "const": "distribution" }
+                        },
+                        "required": [ "direction" ]
+                    },
+                    {
+                        "properties": {
+                            "quantity": { "const": "force" },
+                            "direction": { "const": "composition" }
+                        },
+                        "required": [ "direction" ]
+                    }
+                ]
+            },
+            "then": {
+                "not": { "required": [ "has-secondary-task" ] }
+            },
+            "else": {
+                "required": [
+                    "preprocess-platform-weight",
+                    "preprocess-drive-weight",
+                    "weight-in-platform-space",
+                    "weight-in-drive-space",
+                    "has-secondary-task",
+                    "inverse"
+                ]
+            }
         }
     }
 }

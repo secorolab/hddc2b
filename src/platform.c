@@ -159,6 +159,27 @@ void hddc2b_pltf_frc_pvt_to_pltf(
 }
 
 
+void hddc2b_pltf_vel_pltf_to_pvt(
+        int num_drv,
+        const double *g,
+        const double *xd_pltf,
+        double *xd_drv)
+{
+    assert(num_drv >= 0);
+    assert(g);
+    assert(xd_pltf);
+    assert(xd_drv);
+
+    const int INC = 1;
+
+    // Ẋ_d[NCx1] = G^T[NCx3] Ẋ_p[3x1]
+    cblas_dgemv(CblasColMajor, CblasTrans,
+            NUM_PLTF_COORD, num_drv * NUM_DRV_COORD,
+            1.0, g, NUM_PLTF_COORD, xd_pltf, INC,
+            0.0, xd_drv, INC);
+}
+
+
 void hddc2b_pltf_frc_w_pltf_sqrt(
         const double *w_pltf,
         double *w_pltf_sqrt)
