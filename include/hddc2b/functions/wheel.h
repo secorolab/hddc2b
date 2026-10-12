@@ -123,6 +123,24 @@ void hddc2b_whl_vel_hub_to_gnd(
         double *xd_whl);
 
 
+/**
+ * Solve the wheels' inverse velocity kinematics problem, i.e. the inverse of
+ * @ref hddc2b_whl_vel_hub_to_gnd. All arguments are arranged as there.
+ *
+ * @param[in] num_drv The number of drives that this function is applied to.
+ * @param[in] whl_dia The diameters of the right and left wheels.
+ * @param[in] xd_whl The linear velocities at the right and left wheel-ground
+ *                   contact points.
+ * @param[out] omega_hub The angular velocities around the right and left wheel
+ *                       axles.
+ */
+void hddc2b_whl_vel_gnd_to_hub(
+        int num_drv,
+        const double *whl_dia,
+        const double *xd_whl,
+        double *omega_hub);
+
+
 #ifdef __cplusplus
 }
 #endif

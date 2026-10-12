@@ -155,6 +155,46 @@ void hddc2b_drv_vel_gnd_to_pvt(
         double *xd_drv);
 
 
+/**
+ * Compute the velocity at both wheel-ground contact points from the velocity
+ * of the drive's attachment point, i.e. the inverse of
+ * @ref hddc2b_drv_vel_gnd_to_pvt. All arguments are arranged as there.
+ *
+ * @param[in] num_drv The number of drives that this function is applied to.
+ * @param[in] whl_dst The distance between the two wheels of each drive.
+ * @param[in] cstr_off The castor offset of each drive.
+ * @param[in] xd_drv The longitudinal and transverse velocity of each drive's
+ *                   attachment point, expressed in its pivot frame.
+ * @param[out] xd_whl The linear velocity at the right and left wheel-ground
+ *                    contact points.
+ */
+void hddc2b_drv_vel_pvt_to_gnd(
+        int num_drv,
+        const double *whl_dst,
+        const double *cstr_off,
+        const double *xd_drv,
+        double *xd_whl);
+
+
+/**
+ * Compute the pivot alignment distance of each drive, i.e. the angle
+ * @f$\operatorname{atan2}(\dot{X}_{i,y}, \dot{X}_{i,x})@f$ between the drive's
+ * rolling direction and the velocity of its attachment point.
+ *
+ * @param[in] num_drv The number of drives that this function is applied to.
+ * @param[in] xd_drv The longitudinal and transverse velocity of each drive's
+ *                   attachment point, arranged as in
+ *                   @ref hddc2b_drv_vel_gnd_to_pvt.
+ * @param[out] dst The alignment distance of each drive.
+ * @param[in] inc_dst Increment of the @p dst array.
+ */
+void hddc2b_drv_vel_algn_dst(
+        int num_drv,
+        const double *xd_drv,
+        double *dst,
+        int inc_dst);
+
+
 #ifdef __cplusplus
 }
 #endif
