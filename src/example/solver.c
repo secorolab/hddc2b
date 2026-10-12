@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0
 #include <hddc2b/functions/platform.h>
+#include <hddc2b/functions/drive.h>
+#include <hddc2b/functions/wheel.h>
 #include <solver.h>
 #include <assert.h>
 
@@ -89,4 +91,53 @@ void hddc2b_example_vel(
     hddc2b_pltf_vel_slv(num_drv, u, s_inv, vt, xd_drv2, xd_pltf2);
     
     hddc2b_pltf_vel_redu_wgh_fini(num_drv, xd_pltf2, w_pltf_inv_sqrt, xd_pltf);
+}
+
+
+void hddc2b_example_vel_dist(
+        int num_drv,
+        const double *g,
+        const double *whl_dia,
+        const double *whl_dst,
+        const double *cstr_off,
+        const double *w_pltf,
+        const double *w_algn,
+        double tau,
+        double qd_max,
+        double omega_max,
+        const double *xd_pltf,
+        double *xd_pltf_eff,
+        double *xd_drv,
+        double *omega_hub)
+{
+    assert(num_drv >= 0);
+
+    const int NUM_DRV_COORD = 2;
+    double xd_whl[num_drv * NUM_DRV_COORD];
+    double xd_drv_prim[num_drv * NUM_DRV_COORD];
+    double dst[num_drv];
+    double spd[num_drv];
+    double xd_drv_ref[num_drv * NUM_DRV_COORD];
+
+    hddc2b_pltf_vel_pltf_to_pvt(num_drv, g, xd_pltf, xd_drv_prim);
+    hddc2b_drv_vel_scrb_dst(num_drv, cstr_off, xd_pltf[2], xd_drv_prim,
+            dst, 1, spd, 1);
+
+    // The castor alignment task only constrains the drives' transverse
+    // velocity, hence the longitudinal reference remains unused
+    for (int i = 0; i < num_drv * NUM_DRV_COORD; i++) {
+        xd_drv_ref[i] = 0.0;
+    }
+    hddc2b_drv_vel_algn_ref(num_drv, cstr_off, tau, qd_max, xd_pltf[2],
+            dst, 1, spd, 1, &xd_drv_ref[1], NUM_DRV_COORD);
+
+    hddc2b_pltf_vel_algn_rlx(num_drv, g, w_pltf, w_algn, xd_pltf,
+            xd_drv_ref, xd_pltf_eff);
+    hddc2b_pltf_vel_pltf_to_pvt(num_drv, g, xd_pltf_eff, xd_drv);
+
+    hddc2b_drv_vel_pvt_to_gnd(num_drv, whl_dst, cstr_off, xd_drv, xd_whl);
+    hddc2b_whl_vel_gnd_to_hub(num_drv, whl_dia, xd_whl, omega_hub);
+    hddc2b_pltf_vel_hub_lim(num_drv, omega_max,
+            xd_pltf_eff, xd_drv, omega_hub,
+            xd_pltf_eff, xd_drv, omega_hub);
 }

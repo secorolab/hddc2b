@@ -297,5 +297,55 @@ int main(void)
     print_matrix(NUM_PLTF_COORD, 1, xd_platform);
     printf("\n");
 
+
+
+    //
+    // Velocity distribution from platform to wheels with castor alignment
+    //
+
+    double xd_platform_cmd[NUM_PLTF_COORD] = {  // [m/s], [m/s], [rad/s]
+        1.0, 0.0, 0.0                           // vx, vy, omega
+    };
+
+    // The front-right drive unit is excluded from the alignment
+    double w_align_vel[NUM_DRV] = {
+        0.1, 0.1, 0.1, 0.0                      // fl, rl, rr, fr
+    };
+
+    double align_tau    = 0.1;                  // [s]
+    double align_qd_max = 10.0;                 // [rad/s]
+    double omega_max    = 40.0;                 // [rad/s]
+
+    double xd_platform_eff[NUM_PLTF_COORD];         // [m/s], [m/s], [rad/s]
+    double xd_cmd_drive[NUM_DRV * NUM_DRV_COORD];   // [m/s], [m/s]
+    double omega_wheel[NUM_DRV * NUM_WHL_COORD];    // [rad/s], [rad/s]
+
+    hddc2b_example_vel_dist(NUM_DRV,
+            g,
+            wheel_diameter,
+            wheel_distance,
+            castor_offset,
+            w_platform,
+            w_align_vel,
+            align_tau,
+            align_qd_max,
+            omega_max,
+            xd_platform_cmd,
+            xd_platform_eff,
+            xd_cmd_drive,
+            omega_wheel);
+    printf("\nxd_platform_eff:\n");
+    print_matrix(NUM_PLTF_COORD, 1, xd_platform_eff);
+    printf("\nxd_cmd_drive:\n");
+    print_matrix(NUM_DRV_COORD, NUM_DRV, xd_cmd_drive);
+    printf("\nomega_wheel:\n");
+    print_matrix(NUM_WHL_COORD, NUM_DRV, omega_wheel);
+
+    double q_pvt_algn[NUM_DRV];                     // [rad]
+    hddc2b_drv_vel_algn_dst(NUM_DRV, xd_cmd_drive, q_pvt_algn, 1);
+    printf("\npivot alignment distance [rad]:\n");
+    print_matrix(1, NUM_DRV, q_pvt_algn);
+    printf("\n");
+
     return 0;
 }

@@ -1170,6 +1170,28 @@ Solver:
   .. math::
         \dot{\vect{X}}_d = \vect{G}^T \dot{\vect{X}}_p
 
+Castor alignment
+~~~~~~~~~~~~~~~~
+
+Because the map is exact, a misaligned pivot must realise a transverse velocity
+through the castor offset, which can demand large wheel speeds. Alignment
+therefore relaxes the twist itself: with :math:`\vect{a}_i^T` the row of
+:math:`\vect{G}^T` that yields pivot :math:`i`'s transverse velocity and
+:math:`\bar{\dot{X}}_{i,y}` the transverse velocity that removes its scrub
+angle,
+
+  .. math::
+        \vect{\delta} = \arg\min_{\vect{\delta}}
+          \vect{\delta}^T \vect{W}_p \vect{\delta}
+          + \sum_i w_{a,i} \left(
+              \vect{a}_i^T (\dot{\vect{X}}_p + \vect{\delta})
+              - \bar{\dot{X}}_{i,y}
+            \right)^2
+
+and the relaxed twist :math:`\dot{\vect{X}}_p + \vect{\delta}` is distributed
+instead. The recomposed platform velocity therefore differs from the command
+until the pivots align.
+
 
 Context
 -------

@@ -122,6 +122,30 @@
             "description": [
                 "Compose a platform wrench from the drive forces."
             ]
+        },
+        {
+            "name": "ex_vel_pltf_to_hub_lim",
+            "quantity": "velocity",
+            "direction": "distribution",
+            "output": "hub",
+            "wheel-speed-limit": true,
+            "description": [
+                "Distribute a platform twist to the wheel hub speeds, scaled down to the",
+                "maximum hub speed."
+            ]
+        },
+        {
+            "name": "hddc2b_example_vel_dist",
+            "quantity": "velocity",
+            "direction": "distribution",
+            "alignment": "twist-relaxation",
+            "output": "hub",
+            "wheel-speed-limit": true,
+            "description": [
+                "Distribute a platform twist to the wheel hub speeds. Castor alignment",
+                "relaxes the twist as a lower-weighted task, and the hub speeds are limited",
+                "by scaling the relaxed twist."
+            ]
         }
     ]
 }

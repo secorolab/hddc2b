@@ -48,6 +48,17 @@
                     "type": "string",
                     "enum": [ "pseudoinverse", "damped-least-squares" ]
                 },
+                "alignment": {
+                    "type": "string",
+                    "enum": [ "none", "twist-relaxation" ]
+                },
+                "output": {
+                    "type": "string",
+                    "enum": [ "pivot", "hub" ]
+                },
+                "wheel-speed-limit": {
+                    "type": "boolean"
+                },
                 "description": {
                     "type": "array",
                     "items": { "type": "string" }
@@ -85,7 +96,39 @@
                     "has-secondary-task",
                     "inverse"
                 ]
-            }
+            },
+            "allOf": [
+                {
+                    "$comment": "Alignment, output level and the wheel speed limit only apply to velocity distribution.",
+                    "if": {
+                        "properties": {
+                            "quantity": { "const": "velocity" },
+                            "direction": { "const": "distribution" }
+                        },
+                        "required": [ "direction" ]
+                    },
+                    "else": {
+                        "not": {
+                            "anyOf": [
+                                { "required": [ "alignment" ] },
+                                { "required": [ "output" ] },
+                                { "required": [ "wheel-speed-limit" ] }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "$comment": "Only the hub output produces the hub speeds to limit.",
+                    "if": {
+                        "properties": { "wheel-speed-limit": { "const": true } },
+                        "required": [ "wheel-speed-limit" ]
+                    },
+                    "then": {
+                        "properties": { "output": { "const": "hub" } },
+                        "required": [ "output" ]
+                    }
+                }
+            ]
         }
     }
 }
