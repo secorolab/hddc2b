@@ -195,6 +195,76 @@ void hddc2b_drv_vel_algn_dst(
         int inc_dst);
 
 
+/**
+ * Compute each drive's scrub angle under a platform twist, i.e. the angle
+ * between its rolling direction and the axle centre velocity of a castor that
+ * turns with the platform:
+ * @f[
+ *   dst_i = \operatorname{atan2}(\dot{X}_{i,y} - l_i \omega_p, \dot{X}_{i,x})
+ * @f]
+ * A drive that rolls backwards gets @f$+\pi@f$; a drive at rest gets zero.
+ *
+ * @param[in] num_drv The number of drives that this function is applied to.
+ * @param[in] cstr_off The castor offset @f$l_i@f$ of each drive.
+ * @param[in] omega_pltf The platform's angular velocity @f$\omega_p@f$.
+ * @param[in] xd_drv The pivot velocities, arranged as in
+ *                   @ref hddc2b_drv_vel_gnd_to_pvt.
+ * @param[out] dst The scrub angle of each drive.
+ * @param[in] inc_dst Increment of the @p dst array.
+ * @param[out] spd The speed @f$v_i@f$ of each drive's axle centre.
+ * @param[in] inc_spd Increment of the @p spd array.
+ */
+void hddc2b_drv_vel_scrb_dst(
+        int num_drv,
+        const double *cstr_off,
+        double omega_pltf,
+        const double *xd_drv,
+        double *dst,
+        int inc_dst,
+        double *spd,
+        int inc_spd);
+
+
+/**
+ * Compute the transverse pivot velocity that removes each drive's scrub angle:
+ * @f[
+ *   \bar{\dot{X}}_{i,y} = l_i \left(
+ *     \operatorname{clip}\left(
+ *       \min\left(\frac{1}{\tau}, \frac{v_i}{l_i}\right) dst_i,
+ *       \pm\dot{q}_{max}\right)
+ *     + \omega_p \right)
+ * @f]
+ * A castor aligns by rolling, so it is never asked to turn faster than its
+ * own time constant @f$l_i / v_i@f$; a drive at rest is not asked to turn.
+ *
+ * @param[in] num_drv The number of drives that this function is applied to.
+ * @param[in] cstr_off The castor offset @f$l_i@f$ of each drive.
+ * @param[in] tau The shortest alignment time constant; must be positive.
+ * @param[in] qd_max The maximum castor rate relative to the platform; must be
+ *                   non-negative.
+ * @param[in] omega_pltf The platform's angular velocity @f$\omega_p@f$.
+ * @param[in] dst The scrub angles from @ref hddc2b_drv_vel_scrb_dst.
+ * @param[in] inc_dst Increment of the @p dst array.
+ * @param[in] spd The axle centre speeds from @ref hddc2b_drv_vel_scrb_dst.
+ * @param[in] inc_spd Increment of the @p spd array.
+ * @param[out] xd_ref The transverse velocity reference of each pivot.
+ * @param[in] inc_ref Increment of the @p xd_ref array; two writes the
+ *                    transverse row of a pivot velocity matrix.
+ */
+void hddc2b_drv_vel_algn_ref(
+        int num_drv,
+        const double *cstr_off,
+        double tau,
+        double qd_max,
+        double omega_pltf,
+        const double *dst,
+        int inc_dst,
+        const double *spd,
+        int inc_spd,
+        double *xd_ref,
+        int inc_ref);
+
+
 #ifdef __cplusplus
 }
 #endif

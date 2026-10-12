@@ -832,3 +832,106 @@ void hddc2b_pltf_dmp(
         s_inv[i] = s[i] / (s_sqr + lambda_sqr);
     }
 }
+
+
+void hddc2b_pltf_vel_algn_rlx(
+        int num_drv,
+        const double *g,
+        const double *w_pltf,
+        const double *w_algn,
+        const double *xd_pltf,
+        const double *xd_drv_ref,
+        double *xd_pltf_rlx)
+{
+    assert(num_drv >= 0);
+    assert(g);
+    assert(w_pltf);
+    assert(w_algn);
+    assert(xd_pltf);
+    assert(xd_drv_ref);
+    assert(xd_pltf_rlx);
+
+    const int LDW  = NUM_PLTF_COORD;
+    const int LDD  = NUM_PLTF_COORD;
+    const int LDXD = NUM_DRV_COORD;
+    const int INC  = 1;
+
+    // (W_p + \sum_i w_{a,i} a_i a_i^T) \delta = \sum_i w_{a,i} (Xd_{i,y}' - a_i^T Xd_p) a_i
+    const char UPLO = 'L';  // use lower triangular matrix
+    double m[NUM_PLTF_COORD * NUM_PLTF_COORD];
+    double delta[NUM_PLTF_COORD];
+
+    memcpy(m, w_pltf, NUM_PLTF_COORD * NUM_PLTF_COORD * sizeof(double));
+    for (int i = 0; i < NUM_PLTF_COORD; i++) {
+        delta[i] = 0.0;
+    }
+
+    for (int i = 0; i < num_drv; i++) {
+        // Column of G that maps drive i's transverse force to the platform
+        const double *a = &g[i * NUM_G_COORD + NUM_PLTF_COORD];
+
+        cblas_dsyr(CblasColMajor, CblasLower, NUM_PLTF_COORD,
+                w_algn[i], a, INC,
+                m, LDW);
+
+        double xd_algn = cblas_ddot(NUM_PLTF_COORD, a, INC, xd_pltf, INC);
+
+        cblas_daxpy(NUM_PLTF_COORD,
+                w_algn[i] * (xd_drv_ref[i * LDXD + 1] - xd_algn), a, INC,
+                delta, INC);
+    }
+
+    // W_p positive definite makes the system matrix positive definite
+    LAPACKE_dposv_work(LAPACK_COL_MAJOR, UPLO, NUM_PLTF_COORD, 1,
+            m, LDW, delta, LDD);
+
+    for (int i = 0; i < NUM_PLTF_COORD; i++) {
+        xd_pltf_rlx[i] = xd_pltf[i] + delta[i];
+    }
+}
+
+
+void hddc2b_pltf_vel_hub_lim(
+        int num_drv,
+        double omega_max,
+        const double *xd_pltf_in,
+        const double *xd_drv_in,
+        const double *omega_hub_in,
+        double *xd_pltf_out,
+        double *xd_drv_out,
+        double *omega_hub_out)
+{
+    assert(num_drv >= 0);
+    assert(omega_max > 0.0);
+    assert(xd_pltf_in);
+    assert(xd_drv_in);
+    assert(omega_hub_in);
+    assert(xd_pltf_out);
+    assert(xd_drv_out);
+    assert(omega_hub_out);
+
+    const int LDO = 2;  // leading dimension of "omega_hub" matrix
+
+    double omega_peak = 0.0;
+    for (int i = 0; i < num_drv * LDO; i++) {
+        double omega_abs = fabs(omega_hub_in[i]);
+        if (omega_abs > omega_peak) {
+            omega_peak = omega_abs;
+        }
+    }
+
+    double scale = 1.0;
+    if (omega_peak > omega_max) {
+        scale = omega_max / omega_peak;
+    }
+
+    for (int i = 0; i < NUM_PLTF_COORD; i++) {
+        xd_pltf_out[i] = scale * xd_pltf_in[i];
+    }
+    for (int i = 0; i < num_drv * NUM_DRV_COORD; i++) {
+        xd_drv_out[i] = scale * xd_drv_in[i];
+    }
+    for (int i = 0; i < num_drv * LDO; i++) {
+        omega_hub_out[i] = scale * omega_hub_in[i];
+    }
+}
