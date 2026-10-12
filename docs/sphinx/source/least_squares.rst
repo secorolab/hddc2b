@@ -1153,6 +1153,24 @@ Solver:
         \dot{\vect{X}}_p = \bar{\dot{\vect{X}}}_p + \dot{\vect{X}}_p''
 
 
+Velocity distribution
+---------------------
+
+The following routine maps a velocity from the platform frame to the pivot
+frames. Since HDDC platforms are parallel kinematic chains, each drive's
+attachment velocity is fully determined by the (rigid) platform's motion, so
+this mapping is *unique*. It is the kinematic dual of the (force) composition
+:math:`\vect{F}_p = \vect{G} \vect{F}_d` and, unlike force distribution or
+velocity composition, it does not invert :math:`\vect{G}`: there is no
+over-/under-determined system, hence no singular/redundant variants and no
+weighting, inverse or nullspace.
+
+Solver:
+
+  .. math::
+        \dot{\vect{X}}_d = \vect{G}^T \dot{\vect{X}}_p
+
+
 Context
 -------
 

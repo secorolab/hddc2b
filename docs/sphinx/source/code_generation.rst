@@ -32,23 +32,36 @@ They are optional (as long as the SHACL validation is not required), yet recomme
 Solver configuration
 --------------------
 
-Each solver configuration object must be comprised of the following properties. 
+Each solver configuration object must be comprised of the following properties.
 
 * ``name`` [**string**]: a valid C identifier that will be the name of the generated function
 * ``quantity`` [**string**]: indicate for which physical quantity this solver is meant to be. The value must either be
 
-  - ``force`` for the *force distribution* solver; or
-  - ``velocity`` for the *velocity composition* solver.
+  - ``force`` for force-level solvers; or
+  - ``velocity`` for velocity-level solvers.
+
+* ``direction`` [**string**, optional]: indicate the direction in which the physical quantity is mapped. The value must either be
+
+  - ``distribution`` for mapping from platform space to drive space; or
+  - ``composition`` for mapping from drive space to platform space.
+
+  If omitted, the historical defaults are preserved: ``force`` selects ``distribution`` and ``velocity`` selects ``composition``.
+  The four combinations therefore represent:
+
+  - ``force`` + ``distribution``: distribute a platform force to drive forces.
+  - ``force`` + ``composition``: compose drive forces to a platform force.
+  - ``velocity`` + ``composition``: compose drive velocities to a platform velocity.
+  - ``velocity`` + ``distribution``: distribute a platform velocity to drive velocities.
 
 * ``preprocess-platform-weight`` [**boolean**]: determine whether to preprocess the platform weight matrix in the solver or if it is passed in as an argument (see also :ref:`sec_cheating`).
 
-  - For the *force distribution* solver this will compute the square root of that matrix.
-  - For the *velocity composition* solver this will compute the inverse square root of that matrix.
+  - For force solvers this will compute the square root of that matrix.
+  - For velocity solvers this will compute the inverse square root of that matrix.
 
 * ``preprocess-drive-weight`` [**boolean**]: determine whether to preprocess the drive weight matrix in the solver or if it is passed in as an argument (see also :ref:`sec_cheating`).
 
-  - For the *force distribution* solver this will compute the inverse square root of that matrix.
-  - For the *velocity composition* solver this will compute the square root of that matrix.
+  - For force solvers this will compute the inverse square root of that matrix.
+  - For velocity solvers this will compute the square root of that matrix.
 
 * ``weight-in-platform-space`` [**boolean**]: use this flag when the platform *may* be(come) singular
 * ``weight-in-drive-space`` [**boolean**]: use this flag when the platform *may* be(come) redundant
@@ -61,6 +74,8 @@ Each solver configuration object must be comprised of the following properties.
 
   - ``pseudoinverse`` for computing a `(scalar) pseudoinverse <https://en.wikipedia.org/wiki/Moore%E2%80%93Penrose_inverse#Scalars>`_; or
   - ``damped-least-squares`` for computing a damped inverse akin to `ridge regression <https://en.wikipedia.org/wiki/Ridge_regression#Relation_to_singular-value_decomposition_and_Wiener_filter>`_.
+
+Velocity distribution and force composition are unique maps without a nullspace: they take none of the weighting, inverse or secondary-task properties above.
 
 * ``description``: an array of strings that will be used as a comment in the generated header file
 
