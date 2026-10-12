@@ -77,6 +77,29 @@ hddc2b:SolverConfiguration
         sh:datatype xsd:string ;
         sh:nodeKind sh:Literal
     ] ;
+    sh:property [
+        sh:path hddc2b:alignment ;
+        sh:maxCount 1 ;
+        sh:in ( hddc2b:none hddc2b:twist-relaxation ) ;
+        sh:nodeKind sh:IRI
+    ] ;
+    sh:property [
+        sh:path hddc2b:output ;
+        sh:maxCount 1 ;
+        sh:in ( hddc2b:pivot hddc2b:hub ) ;
+        sh:nodeKind sh:IRI
+    ] ;
+    sh:property [
+        sh:path hddc2b:wheel-speed-limit ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:boolean ;
+        sh:nodeKind sh:Literal
+    ] ;
+    # only the hub output produces the hub speeds to limit
+    sh:or (
+        [ sh:not [ sh:property [ sh:path hddc2b:wheel-speed-limit ; sh:hasValue true ] ] ]
+        [ sh:property [ sh:path hddc2b:output ; sh:hasValue hddc2b:hub ] ]
+    ) ;
     # unique maps take no least-squares settings; every other solver needs them all
     sh:or (
         [
@@ -105,7 +128,10 @@ hddc2b:SolverConfiguration
             sh:property [
                 sh:path hddc2b:has-secondary-task ;
                 sh:maxCount 0
-            ]
+            ] ;
+            sh:property [ sh:path hddc2b:alignment ; sh:maxCount 0 ] ;
+            sh:property [ sh:path hddc2b:output ; sh:maxCount 0 ] ;
+            sh:property [ sh:path hddc2b:wheel-speed-limit ; sh:maxCount 0 ]
         ]
         [
             sh:property [ sh:path hddc2b:preprocess-platform-weight ; sh:minCount 1 ] ;
@@ -113,6 +139,9 @@ hddc2b:SolverConfiguration
             sh:property [ sh:path hddc2b:weight-in-platform-space ; sh:minCount 1 ] ;
             sh:property [ sh:path hddc2b:weight-in-drive-space ; sh:minCount 1 ] ;
             sh:property [ sh:path hddc2b:has-secondary-task ; sh:minCount 1 ] ;
-            sh:property [ sh:path hddc2b:inverse ; sh:minCount 1 ]
+            sh:property [ sh:path hddc2b:inverse ; sh:minCount 1 ] ;
+            sh:property [ sh:path hddc2b:alignment ; sh:maxCount 0 ] ;
+            sh:property [ sh:path hddc2b:output ; sh:maxCount 0 ] ;
+            sh:property [ sh:path hddc2b:wheel-speed-limit ; sh:maxCount 0 ]
         ]
     ) .

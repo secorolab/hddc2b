@@ -1020,6 +1020,72 @@ void hddc2b_pltf_dmp(
         double *s_inv);
 
 
+/**
+ * Relax a platform twist so that the drives can align their castors. The
+ * platform-to-pivot map is unique, so alignment cannot act in a nullspace and
+ * instead modifies the twist as a lower-weighted task:
+ * @f[
+ *   \vect{\delta} = \arg\min_{\vect{\delta}}
+ *     \vect{\delta}^T \vect{W}_p \vect{\delta}
+ *     + \sum_i w_{a,i} \left(
+ *         \vect{a}_i^T (\dot{\vect{X}}_p + \vect{\delta})
+ *         - \bar{\dot{X}}_{i,y}
+ *       \right)^2
+ * @f]
+ * where @f$\vect{a}_i^T@f$ is the row of @f$\vect{G}^T@f$ that yields pivot
+ * @f$i@f$'s transverse velocity. The result is
+ * @f$\dot{\vect{X}}_p + \vect{\delta}@f$.
+ *
+ * @param[in] num_drv The number of drives that the platform consists of.
+ * @param[in] g The force composition matrix, arranged as in
+ *              @ref hddc2b_pltf_frc_pvt_to_pltf.
+ * @param[in] w_pltf The positive-definite @f$3 \times 3@f$ platform tracking
+ *                   weight @f$\vect{W}_p@f$ in column-major order.
+ * @param[in] w_algn The non-negative alignment weight @f$w_{a,i}@f$ of each
+ *                   drive.
+ * @param[in] xd_pltf The commanded platform twist @f$[v_x, v_y, \omega]@f$.
+ * @param[in] xd_drv_ref The pivot velocity reference, arranged as in
+ *                       @ref hddc2b_pltf_vel_pltf_to_pvt; only the transverse
+ *                       row is used.
+ * @param[out] xd_pltf_rlx The relaxed platform twist.
+ */
+void hddc2b_pltf_vel_algn_rlx(
+        int num_drv,
+        const double *g,
+        const double *w_pltf,
+        const double *w_algn,
+        const double *xd_pltf,
+        const double *xd_drv_ref,
+        double *xd_pltf_rlx);
+
+
+/**
+ * Scale a platform twist and the pivot and hub velocities derived from it by
+ * @f$\min(1, \omega_{max} / \max_i |\omega_i|)@f$. The maps are linear, so the
+ * scaled quantities stay consistent. Outputs may alias their inputs.
+ *
+ * @param[in] num_drv The number of drives that the platform consists of.
+ * @param[in] omega_max The maximum hub speed; must be positive.
+ * @param[in] xd_pltf_in The platform twist.
+ * @param[in] xd_drv_in The pivot velocities, arranged as in
+ *                      @ref hddc2b_pltf_vel_pltf_to_pvt.
+ * @param[in] omega_hub_in The hub speeds, arranged as in
+ *                         @ref hddc2b_whl_vel_gnd_to_hub.
+ * @param[out] xd_pltf_out The scaled platform twist.
+ * @param[out] xd_drv_out The scaled pivot velocities.
+ * @param[out] omega_hub_out The scaled hub speeds.
+ */
+void hddc2b_pltf_vel_hub_lim(
+        int num_drv,
+        double omega_max,
+        const double *xd_pltf_in,
+        const double *xd_drv_in,
+        const double *omega_hub_in,
+        double *xd_pltf_out,
+        double *xd_drv_out,
+        double *omega_hub_out);
+
+
 #ifdef __cplusplus
 }
 #endif

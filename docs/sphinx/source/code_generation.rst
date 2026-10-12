@@ -76,6 +76,18 @@ Each solver configuration object must be comprised of the following properties.
   - ``damped-least-squares`` for computing a damped inverse akin to `ridge regression <https://en.wikipedia.org/wiki/Ridge_regression#Relation_to_singular-value_decomposition_and_Wiener_filter>`_.
 
 Velocity distribution and force composition are unique maps without a nullspace: they take none of the weighting, inverse or secondary-task properties above.
+The next three properties only apply to the *velocity distribution* solver.
+
+* ``alignment`` [**string**, optional]: whether the solver steers the drives' castors towards their rolling direction. The value must either be
+
+  - ``none`` (the default) for distributing the commanded twist as it is; or
+  - ``twist-relaxation`` for treating castor alignment as a lower-weighted task that modifies the commanded twist itself (there is no nullspace to project it into).
+
+  The solver then takes a platform tracking weight, per-drive alignment weights, an alignment time constant and a maximum castor rate, and returns the resulting twist as ``xd_pltf_eff``.
+
+* ``output`` [**string**, optional]: ``pivot`` (the default) stops at the pivot velocities; ``hub`` continues through the castor and wheel kinematics to the hub velocities and takes the wheel geometry as additional arguments.
+
+* ``wheel-speed-limit`` [**boolean**, optional]: scale the twist down until every hub speed is within a maximum; the twist, pivot and hub velocities are scaled by the same factor and stay consistent. Requires ``output`` to be ``hub``.
 
 * ``description``: an array of strings that will be used as a comment in the generated header file
 
