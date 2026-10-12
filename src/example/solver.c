@@ -28,7 +28,7 @@ void hddc2b_example_frc(
     
     double g2[num_drv * NUM_G_COORD];
     double f_pltf2[NUM_PLTF_COORD];
-    hddc2b_pltf_frc_sing_wgh(num_drv, g, f_pltf, w_pltf, g2, f_pltf2);
+    hddc2b_pltf_frc_sing_wgh(num_drv, g, f_pltf, w_pltf_sqrt, g2, f_pltf2);
     
     double f_pltf3[NUM_PLTF_COORD];
     hddc2b_pltf_frc_redu_ref_init(num_drv, g2, f_pltf2, f_drv_ref, f_pltf3);
